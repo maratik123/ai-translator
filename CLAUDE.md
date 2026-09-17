@@ -40,12 +40,14 @@ llama-server \
 `-ot` не нужен: под ROCm модель влезает в VRAM целиком (14.34 ГБ, с MTP 14.71 — голова стоит 382 МБ). Под Vulkan модель целиком не помещается, остаётся офлоад на CPU — и время
 начинает плавать на 20% в зависимости от состояния RAM.
 
-Эмбеддинги (на CPU, 10 с на книгу, нулевая VRAM):
+Эмбеддинги — **bge-m3** (на CPU, ~6 с на книгу, нулевая VRAM):
 ```bash
-llama-server -m models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf \
-  --embedding --pooling last -ub 512 -c 2048 -np 1 \
+llama-server -m models/ggml-org/bge-m3-Q8_0-GGUF/bge-m3-q8_0.gguf \
+  --embedding -ub 2048 -c 2048 -np 1 \
   -dev none -ngl 0 -t 8 --host 127.0.0.1 --port 8081
 ```
+`--pooling` не задавать — читается из метаданных GGUF. `-ub` должен вмещать самый
+длинный отдельный абзац, иначе `input (N tokens) is too large to process`.
 
 Гасить: `pkill -x llama-server`. **Не** `pkill -f "llama-server -m models"` — шаблон
 совпадёт с собственной командной строкой и убьёт вызывающий процесс.
@@ -61,7 +63,7 @@ llama-server -m models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.
   уходит в `reasoning_content`, `content` остаётся пустым, упирается в `max_tokens`.
 - **`repeat_penalty` ставить 1.0 явно.** Штраф за повтор бьёт по глоссарию: имена
   персонажей и термины обязаны повторяться.
-- **`--pooling last` для эмбеддингов**, не `cls`. Векторы уже нормализованы.
+- **`--pooling` для эмбеддингов не задавать** — берётся из метаданных GGUF. Векторы уже нормализованы.
 - **`eval`/`compare` только на `temperature 0`, с выключенным MTP и без офлоада на CPU.**
   Сервер недетерминирован при сэмплировании даже с фиксированным seed (~12%), MTP
   добавляет ещё ~24%, а офлоад экспертов в host-память — ещё 20% от состояния RAM/swap.

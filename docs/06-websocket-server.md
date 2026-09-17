@@ -14,6 +14,6 @@
 [server] host = "127.0.0.1"; port = 3000
 [storage] database_url = "postgres://reader@localhost/reader"; assets_dir = "~/.local/share/reader/assets"
 [llm] base_url = "http://127.0.0.1:8080"; model = "gemma-4-26b-a4b-it"
-[embeddings] base_url = "http://127.0.0.1:8081"; model = "qwen3-embedding-0.6b"; dim = 1024
+[embeddings] base_url = "http://127.0.0.1:8081"; model = "bge-m3"; dim = 1024
 [translate] prefetch_window = 40; compact_every = 60; lang_dst = "ru"
 ```
