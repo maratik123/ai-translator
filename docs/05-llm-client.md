@@ -271,7 +271,7 @@ d′ — отрыв золотых пар от остальных в едини�
 Жёсткие фильтры при отборе оказались важнее баллов: контекст ≥ 2048 токенов (самый длинный абзац
 книги — 902, весь слой моделей на 512 отпадает), размерность ≤ 2000 (потолок HNSW в pgvector для
 `vector`), и арка должна грузиться нашей сборкой. Список поддерживаемых арок берётся из самой
-библиотеки: `strings /usr/lib64/llama.cpp/libllama.so.0 | grep -E "bert|embed"`. На b10927 это
+библиотеки: `strings "$(ldd $(command -v llama-server) | awk '/libllama/{print $3}')" | grep -E "bert|embed"`. На b10927 это
 `bert`/XLM-R, `jina-bert-v2/v3`, `modern-bert`, `neo-bert`, `nomic-bert(-moe)`, `gemma-embedding`,
 `qwen3`, `eurobert`, `granite-embed-multi-97m/311m`, `llama-embed`, `t5encoder`; арки `gte`/`NewModel`
 нет, поэтому `gte-multilingual-base` и `arctic-embed-m-v2.0` отпадают до всякого замера.

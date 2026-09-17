@@ -16,10 +16,10 @@
 | Компонент | Значение |
 |---|---|
 | Rust | 1.98.1 |
-| llama.cpp | `sci-misc/llama-cpp` b10927 из guru, USE `vulkan rocm wmma curl openmp` |
+| llama.cpp | b10927, собран с обоими бэкендами (ROCm и Vulkan) |
 | GPU | RX 9070 XT (gfx1201), 16 ГБ; ROCm 7.2 видит карту нативно |
 | CPU | Ryzen 7 5800X, Zen 3, AVX2, без AVX512; DDR4 |
-| Postgres | 18.6 + pgvector 0.8.6 (локальный ebuild в оверлее `local-syt`) |
+| Postgres | 18.6 + pgvector 0.8.6 |
 | БД | локальный Postgres, база `reader`, расширение `vector` создано; DSN в `DATABASE_URL` |
 | Тесты | testcontainers через Podman socket, образ `pgvector/pgvector:pg18` |
 
