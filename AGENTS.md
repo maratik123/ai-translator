@@ -20,7 +20,7 @@
 | GPU | RX 9070 XT (gfx1201), 16 ГБ; ROCm 7.2 видит карту нативно |
 | CPU | Ryzen 7 5800X, Zen 3, AVX2, без AVX512; DDR4 |
 | Postgres | 18.6 + pgvector 0.8.6 (локальный ebuild в оверлее `local-syt`) |
-| БД | `postgres://reader:reader@127.0.0.1/reader`, расширение `vector` создано |
+| БД | локальный Postgres, база `reader`, расширение `vector` создано; DSN в `DATABASE_URL` |
 | Тесты | testcontainers через Podman socket, образ `pgvector/pgvector:pg18` |
 
 `models/` и `examples/` в `.gitignore` — файлы только локальные.
