@@ -15,12 +15,14 @@
 books(id bigserial PK, title, author, lang_src, lang_dst, format, cover_path, added_at timestamptz)
 chapters(id bigserial PK, book_id FK, idx int, title, css text)
 paragraphs(id bigserial PK, chapter_id FK, idx int, kind text, html text, text text,
-  stable_hash bytea)                              -- hash(chapter_idx, idx, text) для переиспользования при реимпорте
+  stable_hash bytea)                              -- hash(book_id, chapter_idx, idx, text) для переиспользования при реимпорте
 translations(
   paragraph_id FK, cache_key bytea, model text, prompt_version int, context_version int,
   text text, created_at timestamptz, PRIMARY KEY(paragraph_id, cache_key))
 context_snapshots(book_id FK, version int, upto_paragraph_id bigint,
-  summary text, glossary jsonb,   -- narrator, characters, scene_state, terms, style: см. 10-gender-and-coreference.md model text, created_at timestamptz, PRIMARY KEY(book_id, version))
+  -- glossary: narrator, characters, scene_state, terms, style — см. 10-gender-and-coreference.md
+  summary text, glossary jsonb, model text, created_at timestamptz,
+  PRIMARY KEY(book_id, version))
 paragraph_embeddings(paragraph_id PK FK, model text, embedding vector(1024))
 paragraph_annotations(paragraph_id FK, context_version int, annotated_text text, uncertain bool,
   PRIMARY KEY(paragraph_id, context_version))
@@ -37,6 +39,15 @@ settings(key text PK, value jsonb)
 - `cache_key = blake3(model || prompt_version || context_version || text)`.
 - «Активный» перевод выбирается по текущим настройкам; старые остаются для сравнения моделей.
 - Запрос для окна: `SELECT ... WHERE paragraph_id = ANY($1) AND cache_key = ANY($2)`.
+
+## Открытый вопрос: `context_version` в ключе кэша
+`cache_key` включает `context_version`. Значит после каждой компактификации ключ уже переведённого абзаца перестаёт совпадать с текущим, и при повторном открытии книги абзац переводится заново, хотя готовый перевод лежит в базе. Варианты:
+
+1. указатель «активный перевод» на абзац (`translations.is_active` или отдельная таблица);
+2. `context_version` как метаданные строки, а не часть ключа;
+3. выбирать перевод по «той версии контекста, что была актуальна для этого абзаца» — то есть последней с `upto_paragraph_id < paragraph_id`.
+
+Не решено. Решение ложится в миграцию, поэтому закрыть до первого `reader-migrate`.
 
 ## Поиск похожих абзацев (RAG по книге)
 ```sql

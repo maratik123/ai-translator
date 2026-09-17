@@ -5,11 +5,26 @@
 - [ ] `just`/Makefile: `gen-types` (cargo test в shared), `dev` (backend с `ServeDir` + `vite dev` с proxy на `/ws` и `/api`), `build` (vite build → rust-embed → cargo build --release).
 - [ ] CI (GitHub Actions): clippy, тесты, проверка что `gen-types` не дает диффа, сборка фронта.
 - [ ] `deploy/reader.service` (systemd user): `ExecStart=%h/.local/bin/reader --config %h/.config/reader/config.toml`, `After=llama-server.service`.
-- [ ] `deploy/llama-server.service` и `deploy/llama-embed.service` с командными строками из `05-llm-client.md`, `Restart=on-failure`.
+- [ ] `deploy/llama-server.service` и `deploy/llama-embed.service` с командными строками из `05-llm-client.md`, `Restart=on-failure`. Устройство прибивать явно (`-dev Vulkan0`): видимых Vulkan-устройств два, второе — софтверный lavapipe.
 - [ ] Postgres: роль `reader`, БД `reader`, `CREATE EXTENSION vector` от суперпользователя (или разрешить роли). Миграции через `reader-migrate` (отдельный бинарь, `ExecStartPre` в юните сервера), сервер и CLI только проверяют версию схемы.
 - [ ] Тесты требуют Podman socket (`systemctl --user enable --now podman.socket`); `just test` выставляет `DOCKER_HOST`.
 - [ ] Логи через `journalctl --user -u reader`.
 - [ ] Доступ с планшета: `host = "0.0.0.0"`, адрес компа в локальной сети, при необходимости `avahi` для `sytmaratik.local`.
+
+## Окружение (Gentoo, RX 9070 XT + Ryzen 7 5800X + 32 ГБ DDR4)
+
+Установлено и проверено:
+- Rust 1.98.1; PostgreSQL 18.6 с server-заголовками (`/usr/include/postgresql-18/server`), кластер живой;
+- ROCm 7.2 (`dev-util/hip`, `sci-libs/hipBLAS`, `sci-libs/rocWMMA`), `AMDGPU_TARGETS="gfx1201"` в make.conf, `rocminfo` видит gfx1201 нативно — `HSA_OVERRIDE_GFX_VERSION` не нужен;
+- Vulkan: RADV на gfx1201, все зависимости сборки (`vulkan-headers`, `spirv-headers`, `shaderc`, `vulkan-loader`, `openmp`);
+- podman 5.8.2 с сокетом для testcontainers;
+- CPU: Zen 3, 8 ядер, AVX2/FMA/F16C/BMI2, **без AVX512** — соответствующие `GGML_*` выставляются из `CPU_FLAGS_X86` автоматически.
+
+Пакеты, которых в дереве нет или которые требуют настройки:
+- [ ] `sci-misc/llama-cpp` — оверлей **guru**, нужен `~amd64`; USE `vulkan rocm wmma curl openmp`.
+- [ ] `dev-db/pgvector` — **нет ни в одном репозитории**, лежит локальный ebuild в оверлее `local-syt` (собран на `postgres-multi.eclass`, как штатные `dev-db/pgtap`/`postgis`).
+- [ ] `POSTGRES_TARGETS="postgres18"` в make.conf: профильный дефолт `postgres17`, а установлен слот 18 — иначе сборка расширений падает.
+- [ ] Роль и БД `reader`, `CREATE EXTENSION vector` от суперпользователя.
 
 ## Порядок реализации (MVP)
 1. `01` shared + `03` storage + `02` импорт epub (без fb2) → `reader-cli import`, `psql` показывает абзацы.
