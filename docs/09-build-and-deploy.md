@@ -20,11 +20,13 @@
 - podman 5.8.2 с сокетом для testcontainers;
 - CPU: Zen 3, 8 ядер, AVX2/FMA/F16C/BMI2, **без AVX512** — соответствующие `GGML_*` выставляются из `CPU_FLAGS_X86` автоматически.
 
-Пакеты, которых в дереве нет или которые требуют настройки:
-- [ ] `sci-misc/llama-cpp` — оверлей **guru**, нужен `~amd64`; USE `vulkan rocm wmma curl openmp`.
-- [ ] `dev-db/pgvector` — **нет ни в одном репозитории**, лежит локальный ebuild в оверлее `local-syt` (собран на `postgres-multi.eclass`, как штатные `dev-db/pgtap`/`postgis`).
-- [ ] `POSTGRES_TARGETS="postgres18"` в make.conf: профильный дефолт `postgres17`, а установлен слот 18 — иначе сборка расширений падает.
-- [ ] Роль и БД `reader`, `CREATE EXTENSION vector` от суперпользователя.
+Пакеты, которых в дереве нет или которые требуют настройки (**всё выполнено**):
+- [x] `sci-misc/llama-cpp` — оверлей **guru**, нужен `~amd64`; USE `vulkan rocm wmma curl openmp`. Собран с обоими бэкендами, `--list-devices` показывает `ROCm0` и `Vulkan0`.
+- [x] `dev-db/pgvector-0.8.6` — **нет ни в одном репозитории**, лежит локальный ebuild в оверлее `local-syt` (собран на `postgres-multi.eclass`, как штатные `dev-db/pgtap`/`postgis`).
+- [x] `POSTGRES_TARGETS="postgres18"` в make.conf: профильный дефолт `postgres17`, а установлен слот 18 — иначе сборка расширений падает.
+- [x] Роль и БД `reader`, `CREATE EXTENSION vector` от суперпользователя. Коннект по TCP на `127.0.0.1` с паролем.
+
+Проверено функционально: `vector(1024)`, косинусный поиск `<=>` и индекс `USING hnsw (embedding vector_cosine_ops)` на 2000 строк — всё работает на Postgres 18.6 с pgvector 0.8.6.
 
 ## Порядок реализации (MVP)
 1. `01` shared + `03` storage + `02` импорт epub (без fb2) → `reader-cli import`, `psql` показывает абзацы.
