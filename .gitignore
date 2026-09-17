@@ -1,3 +1,10 @@
 /models
 /examples
 /tools/emb-eval/results.json
+
+# The one ignored scratch directory: every gate log and throwaway probe goes
+# here, and nothing here is ever committed. The repository root stays visible to
+# git status on purpose — a stray log there must be noticed, not hidden.
+/tmp/
+/target/
+__pycache__/

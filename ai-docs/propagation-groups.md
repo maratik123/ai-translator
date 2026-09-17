@@ -1,0 +1,42 @@
+# Propagation sync groups
+
+Per-file sync groups behind `AGENTS.md` § *Propagation Rule*. **Editing any file in a group obliges you to apply the corresponding change to its siblings in the SAME PR.** The AXIOM and the generic triggers stay in `AGENTS.md`; this page carries the table, which is consulted only while editing one of these files.
+
+| If you edit... | You MUST also check / update... |
+|---|---|
+| `.claude/agents/self-review.md` | `.claude/agents/review-findings.md` AND `.claude/skills/project-review/SKILL.md` (Review group) |
+| `.claude/agents/review-findings.md` | `.claude/agents/self-review.md` AND `.claude/skills/project-review/SKILL.md` (Review group) |
+| `.claude/skills/project-review/SKILL.md` | `.claude/agents/self-review.md` AND `.claude/agents/review-findings.md` (Review group) |
+| `.claude/skills/interview/SKILL.md` | `.claude/agents/spec-writer.md` (Interview group) |
+| `.claude/agents/spec-writer.md` | `.claude/skills/interview/SKILL.md` (Interview group) |
+| `.claude/skills/task/SKILL.md` (Steps 6–8, the design phase) | `.claude/agents/design-writer.md` AND `.claude/agents/design-review.md` AND `.claude/skills/context-reset/SKILL.md` (Task/Design group) |
+| `.claude/agents/design-writer.md` OR `.claude/agents/design-review.md` OR `.claude/skills/context-reset/SKILL.md` | See the *Task/Design group* anchor row above |
+| `.claude/skills/task/SKILL.md` verify list | `.claude/skills/task/reference.md` § *Step 9 — verify list (full)* — the SKILL names the gates, the reference details them; they must not drift |
+| A rule added to or changed in `AGENTS.md` § *Test Conventions* or § *Code Style*, `ai-docs/rust-test-conventions.md` or `ai-docs/code-style.md` that leaves any half to review | A row judging that half in `.claude/agents/self-review.md` AND `.claude/agents/review-findings.md` (Review-checklist group — the grep of the Propagation Rule finds the sites that already mention a changed rule, never the checklist that should begin to mention a new one — a rule has landed before with no reviewer told to judge it) |
+| A domain-invariant rule (cache keys, retrieval, request parameters, validation classes, eval conditions, determinism, secrets) | `ai-docs/domain-invariants.md` AND `.claude/agents/self-review.md` § 4a AND `.claude/agents/review-findings.md` § 1a AND `.claude/agents/design-writer.md` § Rules |
+| A gate command (adding, removing, or renaming one) | `AGENTS.md` § *Build & Test* AND every skill's `allowed-tools` line that grants it AND `.claude/skills/task/reference.md` § *Gate checklist* |
+| `.claude/skills/reflect/SKILL.md` | `.claude/agents/self-reflect.md` (Reflect group) |
+| `.claude/agents/self-reflect.md` | `.claude/skills/reflect/SKILL.md` (Reflect group) |
+| `.claude/skills/improve/SKILL.md` | `.claude/agents/self-improve.md` (Improve group) |
+| `.claude/agents/self-improve.md` | `.claude/skills/improve/SKILL.md` AND `ai-docs/improve-eval-contract.md` (Improve group) |
+| `.claude/skills/triage/SKILL.md` | `.claude/agents/triage-runner.md` AND `.claude/skills/next/SKILL.md` (Triage group) |
+| `.claude/agents/triage-runner.md` | `.claude/skills/triage/SKILL.md` AND `.claude/skills/next/SKILL.md` (Triage group) |
+| `.claude/skills/next/SKILL.md` | `.claude/skills/triage/SKILL.md` AND `.claude/agents/triage-runner.md` (Triage group) |
+| `.claude/skills/ai-audit/SKILL.md` | `.claude/skills/ai-audit/reference.md` AND `checklist-m.md` AND `.claude/agents/learnings-escalation-audit.md` (Audit group) |
+| A case added to `.claude/skills/task/scripts/test-append-task-run.sh` | `ai-docs/task-run-schema.md` § *Cases* — the suite's AC6 asserts the two agree |
+| `ai-docs/agent-writing-style.md` § Patterns | `.claude/skills/ai-audit/checklist-m.md` — the audit checklist that enforces those patterns |
+| `.claude/skills/ai-audit/checklist-m.md` Sub-check 9's recipe or covered file set, or `.claude/skills/ai-audit/reference.md` K1's size command | The size-measurement hook in `.claude/settings.json` — its covered-path pattern and K1's exemption — AND `ai-docs/scripts/test-size-measure-guard.sh`, whose fixtures pin that both recipes pass (a recipe the hook refuses is an audit that cannot run) |
+| `.claude/skills/pr-ci-failed/SKILL.md` | `.claude/skills/master-ci-failed/SKILL.md` AND `.claude/skills/dependabot-pr/reference.md` (CI group — the failure-class taxonomy and the per-class reproducers must agree) |
+| `.claude/skills/master-ci-failed/SKILL.md` | See the *CI group* anchor row above |
+| `.github/workflows/ci.yml` (a job added, renamed, or removed) | The CI group's class tables AND `AGENTS.md` § *Build & Test* AND `ai-docs/claude-tools-hierarchy.md` — a class with no job, or a job with no class, is how a red run becomes unclassifiable — AND the `master` ruleset, whose required checks `ai-docs/scripts/check-ruleset-checks.sh` compares with the job names: the ruleset change is the owner's, asked for in the pull request |
+| The candidate set of the review-register commit gate in `.claude/settings.json` — which state files it hands the check | Every skill that writes a progress or trace file AND `ai-docs/templates/progress-format.md` AND the hook fixtures in `ai-docs/scripts/test-review-register.sh` — a state file written under a path the set does not reach is a register no commit gate reads |
+| `Makefile` — a target added, renamed or removed | `AGENTS.md` § *Build & Test* AND every skill's `allowed-tools` line that grants it AND `.claude/skills/task/reference.md` § *Step 9 — verify list (full)* AND the job that runs it in `.github/workflows/ci.yml` — a gate no job runs is a gate only a local run has |
+| A reviewer spawn template — `.claude/skills/task/SKILL.md` Steps 7 and 10, `.claude/skills/task/reference.md` (both amendment recipes), `.claude/skills/bugfix/SKILL.md`, `.claude/skills/project-review/SKILL.md` | The closed-list contract in `.claude/agents/self-review.md` AND `.claude/agents/design-review.md` AND the reviewer-spawn-contract hook in `.claude/settings.json` AND `ai-docs/scripts/test-spawn-contract-guard.sh` (Spawn group — a template the guard refuses is a template no round can use, and a permitted item the guard does not know is a contract the guard silently narrows) |
+| `.claude/skills/pr-commented/SKILL.md` | `.claude/skills/pr-ci-failed/SKILL.md` (shared Step-5 self-review + Step-6 push/PR-body contract) |
+| `ai-docs/doc-convention.md` § DOC-4 — the comment-reference ban (a class added or removed, an exemption added, the gated file set changed) | `AGENTS.md` § *Code Style* AND `ai-docs/code-style.md` § *Comments* AND `.claude/agents/self-review.md` § 6 AND `.claude/agents/review-findings.md` § 6 AND `.claude/skills/project-review/SKILL.md` Step 4 — and, when the change is a class the gate decides, `ai-docs/scripts/comment_refs.py` and `ai-docs/scripts/test-comment-refs.sh`, because a rule the reviewers state and the gate does not decide is a rule with two readings |
+| `ai-docs/doc-convention.md` § DOC-5 — the stale-comment and unchecked-behavioural-claim classes (a class added or removed) | `.claude/agents/self-review.md` § 6 AND `.claude/agents/review-findings.md` § 6 AND `.claude/skills/project-review/SKILL.md` Step 4 item 6 (DOC-5 group — DOC-5 has no lexical gate at all and is enforced entirely by review, so a class stated in one checklist and missing from another is a rule one reviewer cannot apply) |
+| A script's `--help` block, or the fixed dispatch shape it uses | Every other script that answers the flag — the shape is byte-identical across all of them, and `ai-docs/scripts/check-script-shape.sh` is what refuses a second spelling. A script that gains or loses the flag: also every instruction-file site that told a reader how to invoke it |
+| `ai-docs/scripts/panic_calls.py` — the panicking-call set, the marker shape, or the excluded positions | `ai-docs/panic-index.md` AND `ai-docs/code-style.md` § *Panicking calls* AND `.claude/agents/self-review.md` § 4 AND `.claude/agents/review-findings.md` § 1 AND the panic-gate hook in `.claude/settings.json` AND `ai-docs/scripts/test-panic-calls.sh` |
+| `ai-docs/scripts/import_guard.py` — the forbidden-crate table | `ai-docs/claude-tools-hierarchy.md` § *Shell guards* AND `ai-docs/scripts/test-import-guard.sh` — a rule the table gains without a fixture is a rule nothing proves |
+
+Groups are added here as their files land. Every group the harness declares is now live.

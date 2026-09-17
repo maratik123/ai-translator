@@ -1,0 +1,293 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      harness: ${{ steps.filter.outputs.harness }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+      commentrefs: ${{ steps.filter.outputs.commentrefs }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          # Any future Rust or harness artefact must be added here in the same
+          # pull request that introduces it, or its gate silently stops running.
+          filters: |
+            rust:
+              - '**/*.rs'
+              - '**/*.sql'
+              # A golden file is a test input: a commit that edits one and
+              # nothing else changes what the Rust jobs assert. Without this
+              # entry such a commit matches no Rust path, so the job that
+              # compares the golden would not run on the very commit that
+              # rewrote it.
+              - '**/*.golden'
+              - '**/Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+              - 'Makefile'
+              - '.github/workflows/**'
+            harness:
+              - '.claude/**'
+              - 'ai-docs/**'
+              - 'AGENTS.md'
+              - 'CLAUDE.md'
+              # The gate-log-path suite asserts about the content of the entry
+              # below: a root gate log must NOT be ignored, one under the
+              # scratch directory must be. Without the entry here, a commit
+              # touching only that file does not reach this job, and the
+              # assertion that would catch a re-added rule never runs. A job
+              # that did not run is not a passing job.
+              - '.gitignore'
+              # A commit touching only the pre-commit dispatcher or the
+              # coverage-ratchet script must still reach the shellcheck gate,
+              # which this job is the only one to run; the target that sweep
+              # runs from is named here too, for the same reason.
+              - '.githooks/**'
+              - 'Makefile'
+              # The ruleset check compares the job names with the checks the
+              # branch rules require, so a commit that renames a job and
+              # touches nothing else must still reach this job.
+              - '.github/workflows/**'
+            workflows:
+              - '.github/workflows/**'
+            # Every path class the comment-reference gate reaches — kept as its
+            # own key because neither of the two keys above names the whole
+            # gated set: the first omits the shell class, the second omits the
+            # Rust class.
+            commentrefs:
+              - '**/*.rs'
+              - '**/*.sh'
+              - '**/*.sql'
+              - '**/*.yml'
+              - '**/*.yaml'
+              - '.gitignore'
+              - 'Makefile'
+              - '.githooks/**'
+
+  format:
+    name: Format
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: make fmt-check
+
+  build:
+    name: Build
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - run: make build
+      - run: make doc-check
+      - run: make lock-check
+      - run: make import-guard
+
+  lint:
+    name: Lint
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: make clippy
+      - run: make file-limits
+      - run: make panic-calls
+
+  # Test and Coverage ratchet are siblings rather than two steps of one job:
+  # siblings run at the same time, so a run costs the slower of them instead of
+  # their sum, and a gate that goes red no longer stops the other from
+  # reporting. Sequencing either after the other gives both of those back.
+  test:
+    name: Test
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - run: make test
+
+  cover-ratchet:
+    name: Coverage ratchet
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      # This job is not the only gate: the pre-commit hook is where a drop is
+      # meant to be caught. This job catches a commit made on a machine whose
+      # hooks path is unset, and it re-rolls the measurement on a runner rather
+      # than on the author's machine.
+      - run: make cover-ratchet
+
+  harness:
+    name: Harness guards
+    needs: changes
+    if: needs.changes.outputs.harness == 'true'
+    runs-on: ubuntu-latest
+    # The citation guard resolves a bare number against this repository's pull
+    # requests and issues -- they share one number sequence, and the ceiling is
+    # the newer of the two -- so it needs more than the workflow-level read of
+    # contents. Without either grant that read is refused and the guard stops as
+    # an instrument error, a red job that says nothing about citations.
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    steps:
+      # Check out the BRANCH, not the detached merge commit: the task-run writer
+      # records the current branch, and on a detached HEAD it correctly degrades
+      # to an incomplete row -- which its own suite asserts against. The guards
+      # must run in the environment the scripts really run in.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref_name }}
+      # The dependency-direction suite resolves real workspaces built out of
+      # path dependencies, so it needs a toolchain; without one it prints a
+      # skip, and a case that did not run is not a case that passed.
+      - uses: dtolnay/rust-toolchain@stable
+      - name: shellcheck every tracked script
+        run: make shellcheck
+      - name: shellcheck every hook body in the settings file
+        run: |
+          set -euo pipefail
+          jq -r '.hooks[][].hooks[].command' .claude/settings.json > /tmp/bodies.txt
+          fail=0
+          while IFS= read -r body; do
+            printf '%s\n' "$body" | shellcheck -s bash - || fail=1
+          done < /tmp/bodies.txt
+          exit "$fail"
+      - name: citation namespaces resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .claude/skills/ai-audit/scripts/check-citations.sh
+      - name: context-status locators are filled
+        run: |
+          set -euo pipefail
+          test -f ai-docs/context-status.md
+          if grep -n 'TBD-at-Step-12' ai-docs/context-status.md; then
+            echo "::error file=ai-docs/context-status.md::an entry heading still carries the placeholder; the task flow fills it after the pull request is created"
+            exit 1
+          fi
+      - name: guard regression suites
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bash .claude/skills/ai-audit/scripts/test-check-citations.sh
+          bash .claude/skills/task/scripts/test-append-task-run.sh
+          bash ai-docs/scripts/test-piped-gate-guard.sh
+          bash ai-docs/scripts/test-pipe-status-guard.sh
+          bash ai-docs/scripts/test-size-measure-guard.sh
+          bash ai-docs/scripts/test-spawn-contract-guard.sh
+          bash ai-docs/scripts/test-stop-gate.sh
+          bash ai-docs/scripts/test-gate-log-path-guard.sh
+          bash ai-docs/scripts/test-no-verify-guard.sh
+          bash ai-docs/scripts/test-ac-shape.sh
+          bash ai-docs/scripts/test-review-register.sh
+          bash ai-docs/scripts/test-precommit-dispatch.sh
+          bash ai-docs/scripts/test-instruction-edit-guard.sh
+          bash ai-docs/scripts/test-doc-edit-guard.sh
+          bash ai-docs/scripts/test-spec-shape.sh
+          bash ai-docs/scripts/test-spec-anchors.sh
+          bash ai-docs/scripts/test-script-shape.sh
+          bash ai-docs/scripts/test-harness-gaps-forge.sh
+          bash ai-docs/scripts/test-harness-gaps-targets.sh
+          bash ai-docs/scripts/test-ruleset-checks.sh
+          bash ai-docs/scripts/test-bypass-guard.sh
+          bash ai-docs/scripts/test-comment-refs.sh
+          bash ai-docs/scripts/test-panic-calls.sh
+          bash ai-docs/scripts/test-import-guard.sh
+      - name: acceptance criteria state conditions, not tests
+        run: bash ai-docs/scripts/check-ac-shape.sh
+      - name: specs locate by commit or symbol and store no tally
+        run: bash ai-docs/scripts/check-spec-shape.sh
+      - name: every spec row names its source in the owner's words
+        run: bash ai-docs/scripts/check-spec-anchors.sh
+      - name: every script's help dispatch shape; shebang-extension pairing
+        run: bash ai-docs/scripts/check-script-shape.sh
+      - name: harness-gaps closing fields are written by a forge branch only
+        run: bash ai-docs/scripts/check-harness-gaps-forge.sh
+      - name: every open harness-gaps entry routes its fix to a file that exists
+        run: bash ai-docs/scripts/check-harness-gaps-targets.sh
+      - name: the workflow jobs and the checks the branch ruleset requires are one set
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ai-docs/scripts/check-ruleset-checks.sh
+      - name: relative markdown links resolve
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, re, sys
+          bad = []
+          for f in (p for p in pathlib.Path(".").rglob("*.md") if ".git/" not in str(p)):
+              for m in re.finditer(r'\[[^\]]*\]\(([^)#\s]+)(#[^)]*)?\)', f.read_text()):
+                  t = m.group(1)
+                  if t.startswith(("http://", "https://", "mailto:")) or "<" in t or t == "file.md":
+                      continue
+                  if not (f.parent / t).resolve().exists():
+                      bad.append(f"{f} -> {t}")
+          for b in bad:
+              print(f"::error::broken relative link {b}")
+          sys.exit(1 if bad else 0)
+          PY
+
+  actionlint:
+    name: Actionlint
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: reviewdog/action-actionlint@v1
+        with:
+          reporter: github-check
+          fail_level: error
+
+  comment-refs:
+    name: Comment references
+    needs: changes
+    if: needs.changes.outputs.commentrefs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: make comment-refs
