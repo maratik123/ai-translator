@@ -18,7 +18,8 @@ paragraphs(id bigserial PK, chapter_id FK, idx int, kind text, html text, text t
   stable_hash bytea)                              -- hash(book_id, chapter_idx, idx, text) для переиспользования при реимпорте
 translations(
   paragraph_id FK, cache_key bytea, model text, prompt_version int, context_version int,
-  text text, created_at timestamptz, PRIMARY KEY(paragraph_id, cache_key))
+  text text, created_at timestamptz,
+  PRIMARY KEY(paragraph_id, cache_key, context_version))   -- context_version НЕ входит в cache_key
 context_snapshots(book_id FK, version int, upto_paragraph_id bigint,
   -- glossary: narrator, characters, scene_state, terms, style — см. 10-gender-and-coreference.md
   summary text, glossary jsonb, model text, created_at timestamptz,
@@ -36,19 +37,37 @@ settings(key text PK, value jsonb)
 - `context_snapshots(book_id, upto_paragraph_id)` для поиска актуальной версии.
 
 ## Кэш переводов
-- `cache_key = blake3(model || prompt_version || context_version || text)`.
+- `cache_key = blake3(model || prompt_version || text)` — без `context_version`, см. решение выше.
 - **Важно:** ключ идентифицирует запись кэша, а не воспроизводимый результат. Повторный перевод того же абзаца с теми же параметрами даёт другой текст (замер в `05-llm-client.md`). Для кэша это безразлично, для сравнения версий промпта — нет: сравнение должно идти на жадном декодировании.
-- «Активный» перевод выбирается по текущим настройкам; старые остаются для сравнения моделей.
-- Запрос для окна: `SELECT ... WHERE paragraph_id = ANY($1) AND cache_key = ANY($2)`.
+- «Активный» перевод — самая свежая версия контекста при текущих настройках; старые остаются для сравнения моделей.
+- Запрос для окна:
+```sql
+SELECT DISTINCT ON (paragraph_id) paragraph_id, text, context_version
+FROM translations
+WHERE paragraph_id = ANY($1) AND cache_key = ANY($2)
+ORDER BY paragraph_id, context_version DESC;
+```
+- Проверка перед постановкой задачи (без `context_version`):
+```sql
+SELECT 1 FROM translations WHERE paragraph_id = $1 AND cache_key = $2 LIMIT 1;
+```
 
-## Открытый вопрос: `context_version` в ключе кэша
-`cache_key` включает `context_version`. Значит после каждой компактификации ключ уже переведённого абзаца перестаёт совпадать с текущим, и при повторном открытии книги абзац переводится заново, хотя готовый перевод лежит в базе. Варианты:
+## Решение: `context_version` вне ключа кэша
+Исходно `cache_key` включал `context_version`. Это означало, что после каждой компактификации ключ уже переведённого абзаца перестаёт совпадать с текущим, и абзац переводится заново, хотя готовый перевод лежит в базе.
 
-1. указатель «активный перевод» на абзац (`translations.is_active` или отдельная таблица);
-2. `context_version` как метаданные строки, а не часть ключа;
-3. выбирать перевод по «той версии контекста, что была актуальна для этого абзаца» — то есть последней с `upto_paragraph_id < paragraph_id`.
+**Принято:** `context_version` — атрибут строки, не часть ключа.
 
-Не решено. Решение ложится в миграцию, поэтому закрыть до первого `reader-migrate`.
+```
+cache_key = blake3(model || prompt_version || paragraph.text)
+```
+
+Обоснование помимо очевидного (не пересчитывать зря): замеры в `05-llm-client.md` показали, что перевод невоспроизводим — llama-server недетерминирован при сэмплировании даже с фиксированным seed. Значит ключ в принципе не является честным хешем результата и претендовать на это не должен. Его работа — дедупликация, а параметры прогона честнее хранить атрибутами строки.
+
+Следствия:
+- первичный ключ `(paragraph_id, cache_key, context_version)` — версии контекста сосуществуют, старые переводы остаются для сравнения;
+- **проверка кэша перед переводом игнорирует `context_version`**: есть строка с этим `cache_key` — задача не ставится. В этом весь смысл решения;
+- **выборка для окна берёт самую свежую версию контекста**, см. запрос ниже;
+- перевод заново запускается только явно: пользователь поменял таблицу персонажей или модель, и выбрал «перевести с начала». Продвижение контекста само по себе ничего не инвалидирует.
 
 ## Поиск похожих абзацев (RAG по книге)
 ```sql
