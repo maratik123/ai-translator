@@ -32,6 +32,7 @@ impl Engine {
 - [ ] `context <book> [show | set-narrator f | set-character Tom m Том]`.
 - [ ] `eval <suite.toml> --models a,b --prompt-versions 1,2 --lang en,fr,es,it,de` → таблица метрик. Наборы ловушек по языкам из `10-gender-and-coreference.md`.
 - [ ] `compare <book> --chapter 3 --models a,b [--backend vulkan,rocm] [--mtp on,off]` → markdown с абзацами в колонки для слепой оценки плюс строка производительности на каждую комбинацию.
+- [ ] `embed-eval [--models a,b]` → метрики поиска похожих абзацев по книге для нескольких эмбеддинг-моделей: R@1/R@3/MRR на золоте из редких слов, разброс близостей и порог отсечки, значимость против текущей модели. Перенос прототипа `tools/emb-eval/emb_eval.py` в CLI; метод и результаты в `05-llm-client.md`.
 - [ ] `status` → очередь, модель, версия контекста.
 
 ## Условия воспроизводимости

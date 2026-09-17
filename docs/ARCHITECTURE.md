@@ -70,6 +70,7 @@
 /frontend           Vite + React + TS, src/generated/ из ts-rs
 /docs               эта документация
 /deploy             systemd-юниты, пример конфига llama-server
+/tools              замеры вне продукта: emb-eval (выбор эмбеддинг-модели)
 ```
 
 ## Документы
