@@ -10,7 +10,7 @@
    - Searching for regex patterns (ast-index uses literal match)
    - Searching for string literals inside code (`"some text"`)
    - Searching in comments content
-   - Searching a surface the index does not cover. **It covers `.rs`, `.sql`, `.sh` and the frontend's TypeScript**; it does not cover Markdown, YAML or TOML — so the harness corpus, the workflows and the manifests are grep's, and migrations, scripts and the reader are not.
+   - Searching a surface the index does not cover. **Measured on a probe tree holding one file per extension: `.rs`, `.sql`, `.sh` and `.ts` are indexed; `.md`, `.yml` and `.toml` are not** — so the harness corpus, the workflows and the manifests are grep's, and migrations, scripts and the reader are not. Re-measure the same way rather than trusting this line after a toolchain upgrade.
 
 ## Negative results are NOT evidence
 
@@ -85,18 +85,27 @@ ast-index is 17–69× faster than grep (1–10 ms vs 200 ms–3 s) and returns 
 
 ## Command Reference
 
-| Task | Command | Time |
-|------|---------|------|
-| Universal search | `ast-index search "query"` | ~10 ms |
-| Find struct / enum / trait | `ast-index class "Paragraph"` | ~1 ms |
-| Find symbol | `ast-index symbol "SymbolName"` | ~1 ms |
-| Find usages | `ast-index usages "SymbolName"` | ~8 ms |
-| Find implementations | `ast-index implementations "Translator"` | ~5 ms |
-| Call hierarchy | `ast-index call-tree "function" --depth 3` | ~1 s |
-| Find callers | `ast-index callers "process_paragraph"` | ~1 s |
-| Module deps | `ast-index deps "module-name"` | ~10 ms |
-| File outline | `ast-index outline "lib.rs"` | ~1 ms |
-| Imports of a file | `ast-index imports "main.rs"` | ~1 ms |
+**`ast-index --help` is the authoritative list, and it grows between releases — this table is the subset the flows lean on, not a picture of the tool.** Every row below was run against a probe tree and behaved as written.
+
+| Task | Command |
+|------|---------|
+| Open an unfamiliar area | `ast-index explore "<question or bag of names>"` — ranked symbols with their source and tests, in one shot |
+| Universal search | `ast-index search "query"` |
+| Find struct / enum / trait | `ast-index class "Paragraph"` |
+| Find symbol | `ast-index symbol "SymbolName"` |
+| Resolve a file's indexed path | `ast-index file "lib.rs"` |
+| File outline | `ast-index outline "src/lib.rs"` — **the indexed path, not the base name**: a bare `lib.rs` answers `File not found`, which is why the row above exists |
+| Imports of a file | `ast-index imports "src/lib.rs"` |
+| Definitions, imports and usages at once | `ast-index refs "SymbolName"` |
+| Find usages | `ast-index usages "SymbolName"` |
+| Find implementations | `ast-index implementations "Translator"` |
+| Call hierarchy | `ast-index call-tree "function" --depth 3` |
+| Find callers | `ast-index callers "process_paragraph"` |
+| Module deps | `ast-index deps "module-name"` |
+| What this branch touched | `ast-index changed` — names the branch it diffs against |
+| Where things live | `ast-index map` — one line per directory with its symbol kinds |
+| Open markers | `ast-index todo` |
+| Candidates for deletion | `ast-index unused-symbols` — **read it as a question, never an answer**: a symbol nothing in the index calls shows up here, and the index does not see a SQL table reached from a string-built query, a shell function called by CI, or a TypeScript export consumed by the bundler |
 
 ## Rust-Specific Commands
 
@@ -115,6 +124,8 @@ The indexer reads Rust structurally: a `struct` is a class, an `enum` an enum, a
 
 **What the index cannot show, however the query is spelled:** what a derive or a macro *generates*. The attribute is indexed; the `impl` it expands to exists in no source file, so a clean sweep for that `impl` is a fact about the tree, not about the program. `cargo expand` is what shows it.
 
+**`annotations` is not the command for a derive here.** It answers for annotation styles this project does not use — measured against a probe carrying `#[derive(Debug)]`, `ast-index annotations "derive(Debug)"` returned nothing while `ast-index search "#[derive"` returned both derives as annotation symbols. Use `search`.
+
 ## SQL-Specific Commands
 
 Migrations are indexed too — a `CREATE TABLE` is a class, a `CREATE FUNCTION` or `PROCEDURE` a function, a `CREATE INDEX` a property, a `CREATE TYPE` and a `CREATE DOMAIN` a class. A commented-out statement is not indexed, so a hit is a live definition.
@@ -122,9 +133,11 @@ Migrations are indexed too — a `CREATE TABLE` is a class, a `CREATE FUNCTION` 
 | Task | Command |
 |------|---------|
 | Find a table | `ast-index class "translations"` |
-| Find an index | `ast-index symbol "idx_translations_paragraph"` |
+| Find an index | `ast-index symbol "idx_translations_key"` |
 | Find a function or a procedure | `ast-index symbol "<name>"` |
 | Find where a table is touched | `ast-index usages "translations"` — and read the callers, because a query built as a string reaches no index |
+
+All four rows were measured: a `CREATE TABLE` came back as a class, a `CREATE INDEX` as a property, a `CREATE FUNCTION` as a function, and a commented-out `CREATE TABLE` produced a content match and **no symbol** — so a symbol hit here is a live definition.
 
 ## Index Management
 
