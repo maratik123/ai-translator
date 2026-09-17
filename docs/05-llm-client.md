@@ -207,7 +207,7 @@ llama-server \
 - `-md, --model-draft, --spec-draft-model FNAME` — файл MTP-головы;
 - `--spec-type draft-mtp` — тип спекулятивки (список через запятую);
 - `--spec-draft-n-max N` / `--spec-draft-n-min N` — сколько токенов драфтить; начинать с 2, перебрать 1-6;
-- `--spec-draft-cpu-moe`, `--spec-draft-n-cpu-moe` — офлоад драфтера, нам не нужен.
+- `--spec-draft-cpu-moe`, `--spec-draft-n-cpu-moe` — офлоад драфтера, нам не нужен: 382 МБ помещаются в VRAM.
 
 ### Замер на книге (92 абзаца, Gemma 4 26B-A4B QAT, Vulkan)
 
