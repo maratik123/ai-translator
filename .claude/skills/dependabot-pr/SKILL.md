@@ -5,7 +5,7 @@ disable-model-invocation: true
 allowed-tools: Bash(cargo *) Bash(rustfmt *) Bash(actionlint *) Bash(shellcheck *) Bash(git diff *) Bash(git status *) Bash(git log *) Bash(git rev-parse *) Bash(git branch *) Bash(git checkout *) Bash(git add *) Bash(git commit *) Bash(git push *) Bash(git fetch *) Bash(git merge-base *) Bash(gh pr view *) Bash(gh pr checks *) Bash(gh pr create *) Bash(gh pr edit *) Bash(gh pr comment *) Bash(gh issue create *) Bash(gh run view *) Bash(gh run list *) Bash(gh api *) Bash(make *)
 ---
 
-> **Dependabot is configured** (`.github/dependabot.yml`: `cargo` + `github-actions`, weekly). This skill triages the `cargo` PRs; a `github-actions` PR bails at preconditions as out of scope for v1.
+> **Dependabot is configured** (`.github/dependabot.yml`: `github-actions` weekly; the `cargo` ecosystem returns with the commit that creates the workspace — see the propagation table). This skill triages the `cargo` PRs; a `github-actions` PR bails at preconditions as out of scope for v1.
 
 > **Action authorisation.** The default rule "only commit when the user explicitly asks" is not invoked by this skill — this skill **never** commits, **never** stages, and **never** pushes (KD-8: the bot owns the branch). What IS pre-authorised by `/dependabot-pr` itself, no extra prompt: posting `@dependabot rebase` / `@dependabot recreate` comments, posting a bail-with-comment on scope-drift / ecosystem-bail, creating a bail-with-issue via `gh issue create`, and printing the confirm-merge command. **Merge is user-driven (KD-4):** the skill prints `gh pr merge --merge <N>` and pauses; the user runs the command. The skill never invokes `gh pr merge`.
 

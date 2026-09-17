@@ -1,13 +1,11 @@
 version: 2
 updates:
-  - package-ecosystem: cargo
-    directory: "/"
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "build"
-      include: scope
+  # The cargo ecosystem is deliberately absent while the workspace is: Dependabot
+  # resolves a manifest at the directory named here, and with none it ends every
+  # scheduled run as a failed updater run. That run is a red run on the default
+  # branch, which is the signal one flow here exists to act on — a weekly false
+  # positive nothing can fix is worse than the missing entry. It returns in the
+  # commit that creates the workspace; the propagation table binds the two.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

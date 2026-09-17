@@ -197,8 +197,8 @@ When `cargo test --workspace` reports a failure, identify the specific failing t
 
 Scan new/modified production sources for documented or direct panic sites and update `ai-docs/panic-index.md` if any are introduced:
 
-- `rg -n '(^|[^[:alnum:]_.])(panic\(|log\.(Fatal|Panic)[a-z]*\()' --type go <changed-files>` — direct panic sites; walk the hits and skip `_test.rs` files
-- `rg -n 'func Must[A-Z]' --type go <changed-files>` — `Must…` helpers, which are panics by contract
+- `make panic-calls` — every panicking call in shipped code, with its marker checked; the gate already puts test modules, `tests/`, `benches/` and `examples/` out of scope, so every hit it reports is a shipped one
+- `rg -n '\.(unwrap|expect)\b' --type rust <changed-files>` — the conversions that panic on the value they are given, including any the gate's position rules put out of scope
 
 For each new production hit, add a row to `ai-docs/panic-index.md` (location, trigger, invariant, why not an error return). Stage `panic-index.md` with the implementation commit. Skip when this task added no new production panics. `master` exiting non-zero at startup is not a panic and needs no row.
 

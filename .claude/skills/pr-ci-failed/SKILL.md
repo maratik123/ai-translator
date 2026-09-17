@@ -188,10 +188,10 @@ Classify the failure into exactly one class:
 | `fmt` | `cargo fmt --all --check` — no diff = clean |
 | `build` | `cargo build --workspace` then `cargo clippy --workspace --all-targets` |
 | `tidy` | `cargo update --workspace && git diff --exit-code Cargo.toml Cargo.lock` |
-| `import-guard` | `make import-guard`. The fix is to move the offending dependency into `dev-dependencies` or out of the graph — never to delete the rule from the table: a test-only helper may be imported from a `_test.rs` file freely, since the gate reads the **non-test** graph |
+| `import-guard` | `make import-guard`. The fix is to move the offending dependency into `dev-dependencies` or out of the graph — never to delete the rule from the table: a test-only crate may be used from a dev-dependency freely, since the gate reads the **non-dev** graph |
 | `test` | `cargo test --workspace <test name>`, then the full `cargo test --workspace` |
 | `race` | `cargo test --workspace -run <TestName>` |
-| `lint` | `cargo clippy --workspace --all-targets`; if that is clean the failure is the file-size gate — `awk` over `*.rs`, hard 1000 / 1500 for `_test.rs` |
+| `lint` | `cargo clippy --workspace --all-targets -- -D warnings`; if that is clean the failure is the file-size gate — `awk` over `*.rs`, hard 1200 under a crate's `src/` and 1500 under `tests/` — or the panic gate, `make panic-calls` |
 | `harness` | the failing guard itself: `shellcheck -s bash <script>`, `bash .claude/skills/ai-audit/scripts/check-citations.sh`, `bash .claude/skills/task/scripts/test-append-task-run.sh`, `bash ai-docs/scripts/test-piped-gate-guard.sh`, `bash ai-docs/scripts/check-script-shape.sh`, or the failing guard suite under `ai-docs/scripts/` |
 | `comment-refs` | `make comment-refs` for the whole tracked set, or `bash ai-docs/scripts/check-comment-refs.sh <file>...` for the reported files. The fix is to rewrite the sentence without the pointer, not to widen the gate — the rule and its exemptions are in `ai-docs/doc-convention.md` § DOC-4 |
 | `actionlint` | `actionlint .github/workflows/<file>.yml` |
