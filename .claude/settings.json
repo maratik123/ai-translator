@@ -1,0 +1,226 @@
+{
+  "extraKnownMarketplaces": {
+    "ast-index": {
+      "source": {
+        "source": "github",
+        "repo": "defendend/Claude-ast-index-search"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ast-index@ast-index": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v ast-index >/dev/null 2>&1; then if ast-index stats >/dev/null 2>&1; then ast-index update >/dev/null 2>&1 || true; echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"ast-index: index updated\"}}'; else ast-index rebuild >/dev/null 2>&1 || true; echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"ast-index: index rebuilt\"}}'; fi; else echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"ast-index: not found\"}}'; fi",
+            "timeout": 120,
+            "statusMessage": "Syncing ast-index..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"REQUIRED SESSION START to read rules from CLAUDE.md. Show user a summary of these rules\"}}'",
+            "timeout": 30,
+            "statusMessage": "Read session rules..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); if echo \"$cmd\" | grep -qE '(^|[ ;&|`])git[[:space:]]+commit\\b'; then branch=$(git branch --show-current 2>/dev/null); if [ \"$branch\" = \"master\" ]; then printf 'BLOCKED: git commit on master is forbidden.\\n\\nRecovery (no commits yet on master):\\n  git checkout -b feat/YYYY-MM-DD-name\\n\\nRecovery (commits already on master, not yet pushed):\\n  git stash                                           # save uncommitted work\\n  git checkout -b feat/YYYY-MM-DD-name                 # branch carries the commits\\n  git checkout master                                  # back to master\\n  git reset --soft origin/master && git restore --staged .   # rewind without losing work\\n  git checkout feat/YYYY-MM-DD-name && git stash pop   # resume on feature branch\\n\\nNever use git reset --hard. Full procedure: AGENTS.md > Workflow > AXIOM 1.\\nNote: origin enforces nothing unless a ruleset requires it (AGENTS.md > Permissions) -- this hook is the enforcement.\\n' >&2; exit 2; fi; fi",
+            "timeout": 10,
+            "statusMessage": "Checking branch before commit..."
+          },
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); if echo \"$cmd\" | grep -qE '(^|[ ;&|`])git[[:space:]]+commit\\b'; then ast-index update >/dev/null 2>&1 || true; fi; exit 0",
+            "timeout": 30,
+            "statusMessage": "Refreshing ast-index..."
+          },
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); if printf '%s' \"$cmd\" | grep -qE '(^|[ ;&|`(])(cargo[[:space:]]+(build|test|clippy|fmt|doc|metadata|llvm-cov)|rustfmt|make)\\b[^;]*\\|[[:space:]]*(tail|head)\\b' && ! printf '%s' \"$cmd\" | grep -qE '(^|[[:space:]])(--help|-h)([[:space:]]|$)' && ! printf '%s' \"$cmd\" | grep -qE '(^|[;&|[:space:]])set[[:space:]]+-o[[:space:]]+pipefail'; then printf 'BLOCKED: gate piped through tail/head without pipefail.\\n\\nBash reports the LAST pipeline stage exit status, so tail/head always exits 0 -- a RED gate gets recorded as green. tail -N can also truncate away the failure line you needed (AGENTS.md > Build & Test).\\n\\nUse instead:\\n  mkdir -p tmp && cargo test --workspace > tmp/gate.log 2>&1 && echo GATE-GREEN || echo GATE-RED\\n  grep -E \"^(error|warning|test result|failures)\" tmp/gate.log\\n\\nOr prefix with: set -o pipefail;\\n\\nThis hook matches COMMAND TEXT, not shell semantics -- a string that merely quotes such a pipeline also matches. Rephrase it or use the Write tool.\\n\\nKnown false positive: a make dry run (make -n) is blocked too, because make is matched as a class -- every target in this Makefile is a gate, and a loud refusal on a command that executes nothing is cheaper than a green record of a red gate. Drop the pipe or redirect to a file.\\n' >&2; exit 2; fi",
+            "timeout": 10,
+            "statusMessage": "Checking piped gate exit status..."
+          },
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE '(^|[ ;&|`(])(cargo[[:space:]]+(build|test|clippy|fmt|doc|metadata|llvm-cov)|rustfmt|make|actionlint|shellcheck)\\b[^;]*>[[:space:]]*[A-Za-z0-9._-]+([[:space:]]|$)' && { printf 'BLOCKED: gate output redirected into the repository root.\\n\\nScratch belongs in tmp/, the one ignored scratch directory:\\n  mkdir -p tmp && cargo test --workspace > tmp/gate.log 2>&1 && echo GATE-GREEN || echo GATE-RED\\n  grep -E \"^(error|warning|test result|failures)\" tmp/gate.log\\n\\nWhy this is a block and not a note: a gate log written to the root is untracked, so it is invisible to every tree-clean probe the flows run, and such files accumulate under whatever name each run invents. A rule naming a single filename holds for none of them.\\n\\nA slash in the target is enough to pass: tmp/x.log, /dev/null, a scratchpad path and ../x are all allowed. Only a bare filename, which lands in the working directory, is refused.\\n\\nThis hook matches COMMAND TEXT, not shell semantics -- a string that merely quotes such a redirect matches too. Rephrase it or use the Write tool.\\n' >&2; exit 2; }; exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking gate-log path..."
+          },
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE '(^|[ ;&|`(])git[[:space:]]+(commit|push)\\b[^;]*([[:space:]]--no-verify\\b|[[:space:]]-[A-Za-z]*n[A-Za-z]*([[:space:]]|$))' && { printf 'BLOCKED: --no-verify on git commit/push.\\n\\nThe pre-commit hook runs the comment-reference gate over the staged set and then the coverage ratchet. Bypassing either belongs to the owner, not to you: a gate an agent can switch off is not a gate.\\n\\nIf the ratchet blocked you, the two legitimate exits are:\\n  1. cover what the change added, so coverage holds; or\\n  2. lower ai-docs/coverage-ratchet.txt IN THIS COMMIT and say in the message why the drop is correct -- a reviewer then sees the decision instead of a silent bypass.\\n\\nIf the comment-reference gate blocked you, the exit is to rewrite the sentence without the outward pointer. The rule and its exemptions are in ai-docs/doc-convention.md, DOC-4; widening the gate is not one of them.\\n\\nIf the hook is failing for a reason that is not coverage (no container runtime, no Rust toolchain, no coverage instrument), it says so on stderr and exits 0 by itself. Read what it printed.\\n' >&2; exit 2; }; exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking for --no-verify..."
+          },
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE '(^|[ ;&|`])git[[:space:]]+commit\\b' || exit 0; script=ai-docs/scripts/check-review-register.sh; [ -x \"$script\" ] || exit 0; br=$(git branch --show-current 2>/dev/null); shopt -s nullglob; traces=(ai-docs/bugfix/trace-*.md); kept=(ai-docs/plans/*.progress.md ai-docs/plans/ignored/*.progress.md ai-docs/pr-comments/*.progress.md ai-docs/ci-fixes/*.progress.md ai-docs/dependabot/*.progress.md); mapfile -t pf < <({ git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep '\\.progress\\.md$'; git diff --name-only --diff-filter=ACMR 2>/dev/null | grep '\\.progress\\.md$'; printf '%s\\n' \"${traces[@]}\"; if [ -n \"$br\" ] && [ \"${#kept[@]}\" -gt 0 ]; then BR=\"$br\" awk '/^\\*\\*Branch:\\*\\*/ { v = $0; sub(/^\\*\\*Branch:\\*\\*[[:space:]]*/, \"\", v); sub(/[[:space:]]+$/, \"\", v); if (v == ENVIRON[\"BR\"]) print FILENAME }' \"${kept[@]}\" 2>/dev/null; fi; } | grep -v '^$' | sort -u); [ \"${#pf[@]}\" -gt 0 ] || exit 0; \"$script\" \"${pf[@]}\" >&2 || exit 2; exit 0",
+            "timeout": 15,
+            "statusMessage": "Checking the review register..."
+          },
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); [ -n \"$cmd\" ] || exit 0; set -- ai-docs/plans/*.spec.md.state.md; [ -e \"$1\" ] || exit 0; [ -f ai-docs/plans/.task-inflight ] && exit 0; paths=\"(\\\\.claude/|AGENTS\\\\.md|CLAUDE\\\\.md|ai-docs/(code-style|doc-convention)\\\\.md)\"; write=\">>?[[:space:]]*[\\\"']?(\\\\.claude/|AGENTS\\\\.md|CLAUDE\\\\.md|ai-docs/(code-style|doc-convention)\\\\.md)|(^|[ ;&|\\`(])(sed[[:space:]]+-[A-Za-z]*i[^[:space:]]*|tee|rm|truncate|git[[:space:]]+(mv|rm))[[:space:]][^;|&]*(\\\\.claude/|AGENTS\\\\.md|CLAUDE\\\\.md|ai-docs/(code-style|doc-convention)\\\\.md)|(^|[ ;&|\\`(])(cp|mv|install)[[:space:]][^;|&]*[[:space:]][\\\"']?(\\\\.claude/|AGENTS\\\\.md|CLAUDE\\\\.md|ai-docs/(code-style|doc-convention)\\\\.md)[^[:space:];|&]*[\\\"']?[[:space:]]*(\\$|[;|&])|write_text|open\\\\([^)]*[\\\"'][wa][\\\"']\"; printf '%s' \"$cmd\" | grep -qE \"$paths\" || exit 0; printf '%s' \"$cmd\" | grep -qE \"$write\" || exit 0; printf 'BLOCKED: write into an instruction file while an interview is live.\\n\\nState file(s) present: %s-- a /task or /interview run is between its round 1 and Step 8, and AGENTS.md > Learning Log > Boundary rule 2 says an instruction file (AGENTS.md, CLAUDE.md, .claude/**, ai-docs/code-style.md, ai-docs/doc-convention.md) is edited only by /improve or on the owner'\\''s explicit imperative aimed at the edit itself -- \"the instruction should say X\" is a diagnosis, not a licence (ai-docs/learnings.md 2026-09-08).\\n\\nLegal routes:\\n  * park the diagnosis: append to ai-docs/harness-gaps.md with a target: field (never an instruction-file edit)\\n  * an /improve run or the owner'\\''s own harness edit: use a branch that carries no ai-docs/plans/*.spec.md.state.md, or retire the state file first (git mv ... ai-docs/plans/ignored/)\\n  * Steps 8-12 of /task are exempt by design: they carry ai-docs/plans/.task-inflight, which this hook honours.\\n' \"$(printf '%s ' ai-docs/plans/*.spec.md.state.md)\" >&2; exit 2"
+          },
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); [ -n \"$cmd\" ] || exit 0; flat=$(printf '%s' \"$cmd\" | tr '\\n' ';'); printf '%s' \"$flat\" | grep -qE '[[:space:]]\\|[[:space:]][^;]*;[^;]*\\$\\?' || exit 0; printf '%s' \"$flat\" | grep -qE 'pipefail|PIPESTATUS' && exit 0; printf 'BLOCKED: exit status read after a pipeline.\\n\\nAfter a pipeline, %s is the status of its LAST stage -- head, cut, sed and tee succeed on any input, so an error or a no-match from the command you meant to measure records as a clean result (AGENTS.md > Build & Test).\\n\\nUse instead:\\n  mkdir -p tmp && grep -n PATTERN FILE > tmp/probe.log 2>&1; echo \"exit=%s\"\\n  head -20 tmp/probe.log\\n\\nOr prefix with: set -o pipefail;   or read %s.\\n\\nThis hook matches COMMAND TEXT, not shell semantics -- text that merely quotes such a command (a heredoc into a log entry) matches too. Write that text with the Write tool.\\n' \"\\$?\" \"\\$?\" \"\\${PIPESTATUS[0]}\" >&2; exit 2",
+            "statusMessage": "Checking exit status after a pipeline...",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); [ -n \"$cmd\" ] || exit 0; flat=$(printf '%s' \"$cmd\" | tr '\\n' ';'); case \"$flat\" in 'wc -l .claude/skills/*/SKILL.md') exit 0 ;; esac; cov='(AGENTS\\.md|CLAUDE\\.md|\\.claude/(skills|agents|rules)[^[:space:];|&]*\\.md|\\.claude/(skills|agents|rules)/?([[:space:];|&]|$)|ai-docs/(code-style|doc-convention|context|agent-writing-style|corrections-log)\\.md)'; lead='(^|[;&|({])[[:space:]]*((do|then|else)[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*'; printf '%s' \"$flat\" | grep -qE \"${lead}(wc|du|stat)[[:space:]][^;|&]*${cov}|${lead}cat[[:space:]][^;|&]*${cov}[^;|&]*\\|[[:space:]]*wc([[:space:]]|$)|${cov}[^;]*\\|[[:space:]]*xargs[[:space:]]+([^;|&]*[[:space:]])?(wc|du|stat)([[:space:]]|$)\" || exit 0; printf 'BLOCKED: instruction-file size measured outside /ai-audit.\\n\\n.claude/skills/ai-audit/checklist-m.md > Sub-check 9 gives the size of AGENTS.md, CLAUDE.md, .claude/{skills,agents,rules}/**.md and its named ai-docs pages to /ai-audit alone. /task, /interview, /bugfix, /improve, both reviewers and CI are forbidden to measure it, report it or plan around it -- whatever the purpose, including deciding how to read a file.\\n\\nTo read a large file, use sed -n ranges or grep -n for structure.\\n\\nIf this IS an /ai-audit pass, run Sub-check 9 or Checklist K1 by its verbatim recipe, which this hook lets through.\\n\\nThis hook matches COMMAND TEXT, not shell semantics -- text that merely quotes such a command matches too. Write that text with the Write tool.\\n' >&2; exit 2",
+            "statusMessage": "Checking instruction-file size measurement...",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); [ -n \"$cmd\" ] || exit 0; flat=$(printf '%s' \"$cmd\" | tr '\\n' ' '); why=; if printf '%s' \"$flat\" | grep -qE '(^|[;&|(`[:space:]])gh[[:space:]]+pr[[:space:]]+merge([[:space:]][^;&|]*)?[[:space:]]--admin([[:space:]=;&|)]|$)'; then why='gh pr merge --admin merges past the checks the ruleset requires'; elif printf '%s' \"$flat\" | grep -qE '(^|[;&|(`[:space:]])gh[[:space:]]+api[[:space:]]+graphql([[:space:]]|$)'; then if printf '%s' \"$flat\" | grep -qE '(create|update|delete)(RepositoryRuleset|BranchProtectionRule)'; then why='a GraphQL mutation of a ruleset or a branch protection rule'; fi; elif printf '%s' \"$flat\" | grep -qE '(^|[;&|(`[:space:]])gh[[:space:]]+api[[:space:]][^;&|]*(/rulesets|/branches/[^[:space:];&|]+/protection)'; then if printf '%s' \"$flat\" | grep -qiE '(^|[[:space:]])(-X|--method)([[:space:]]*|=)[\"'\\'']?(POST|PUT|PATCH|DELETE)'; then why='a gh api write to a ruleset or a branch protection'; elif printf '%s' \"$flat\" | grep -qE '[[:space:]](-f|-F|--field|--raw-field|--input)([[:space:]=]|$)' && ! printf '%s' \"$flat\" | grep -qiE '(^|[[:space:]])(-X|--method)([[:space:]]*|=)[\"'\\'']?GET'; then why='a gh api call to a ruleset or a branch protection that carries fields or a body, which gh sends as a POST'; fi; fi; [ -n \"$why\" ] || exit 0; printf 'BLOCKED: %s.\\n\\nServer-side protection of master belongs to the owner (AGENTS.md > Permissions). This session acts with the owner'\\''s credentials, so GitHub cannot tell an agent'\\''s bypass or ruleset change from the owner'\\''s own, and the refusal has to happen here. Merging past a required check, and changing or deleting a ruleset or a branch protection, are the owner'\\''s actions, taken outside this session.\\n\\nNot refused: reading them (gh api .../rules/branches/master, or gh api .../rulesets with no method and no fields) and an ordinary merge on the owner'\\''s explicit word (gh pr merge --merge <N>). If a required check blocks that merge, report which one and stop.\\n' \"$why\" >&2; exit 2",
+            "timeout": 10,
+            "statusMessage": "Checking for a protection bypass..."
+          }
+        ]
+      },
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); st=$(printf '%s' \"$input\" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null) || exit 0; case \"$st\" in self-review|design-review) ;; *) exit 0 ;; esac; prompt=$(printf '%s' \"$input\" | jq -r '.tool_input.prompt // empty' 2>/dev/null) || exit 0; [ -n \"$prompt\" ] || exit 0; extra=$(printf '%s\\n' \"$prompt\" | grep -vE -e '^[[:space:]]*$' -e '^[[:space:]]*Read \\.claude/agents/(self-review|design-review)\\.md and follow it\\.[[:space:]]*$' -e '^[[:space:]]*(Spec|Spec-equivalent|Design|Progress):[[:space:]]*[A-Za-z0-9._/-]+\\.md[[:space:]]*$' -e '^[[:space:]]*[A-Za-z0-9._/-]+\\.md[[:space:]]*$' -e '^[[:space:]]*((Commits|Commit range|Diff window):[[:space:]]*)?(git diff[[:space:]]+)?[0-9a-f]{7,40}\\.\\.(HEAD|[0-9a-f]{7,40})[[:space:]]*$' -e '^[[:space:]]*Round:[[:space:]]*[0-9]+[[:space:]]*$'); if [ -n \"$extra\" ]; then printf 'BLOCKED: %s spawn prompt carries content beyond the closed list (.claude/agents/%s.md > Spawn prompt contract).\\n\\nLine(s) outside the list:\\n%s\\n\\nPermitted, one per line, nothing else:\\n  Read .claude/agents/%s.md and follow it.\\n  Spec: <path>.md          -- or Spec-equivalent: <path>.md\\n  Design: <path>.md        -- omit the line when there is no design doc\\n  Progress: <path>.md\\n  <sha>..HEAD              -- real SHAs, self-review\\n  Round: <N>               -- design-review\\n\\nRe-spawn with those lines only. Round history, gate results, a description or defence of the fixes, scope reminders and routing questions are contamination -- the reviewer re-derives all of it from the tree, and what it needs about a no-spec or no-design run is in the agent file, under What the prompt paths already tell you.\\n' \"$st\" \"$st\" \"$extra\" \"$st\" >&2; exit 2; fi; [ \"$st\" = self-review ] || exit 0; range=$(printf '%s\\n' \"$prompt\" | grep -oE '[0-9a-f]{7,40}\\.\\.(HEAD|[0-9a-f]{7,40})' | head -n 1); [ -n \"$range\" ] || exit 0; lo=${range%%..*}; hi=${range##*..}; git rev-parse -q --verify \"$lo^{commit}\" >/dev/null 2>&1 || exit 0; git rev-parse -q --verify \"$hi^{commit}\" >/dev/null 2>&1 || exit 0; if git diff --quiet \"$lo\" \"$hi\" 2>/dev/null; then printf 'BLOCKED: self-review spawn over an empty diff window.\\n\\n%s carries no change between its two ends, so the reviewer would read nothing and could still approve (.claude/agents/self-review.md instruction 3).\\n\\nCommit the work under review first, then pass <base>..HEAD with <base> the commit before it; for /bugfix, Step 6.5 item 1. A range this repository cannot resolve is not checked here.\\n' \"$range\" >&2; exit 2; fi; exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking reviewer spawn prompt..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); [ -n \"$f\" ] || exit 0; case \"$f\" in /*) case \"$f\" in \"$PWD\"/*) f=${f#\"$PWD\"/} ;; *) exit 0 ;; esac ;; ./*) f=${f#./} ;; esac; case \"$f\" in .claude/*|AGENTS.md|*/AGENTS.md|CLAUDE.md|*/CLAUDE.md|ai-docs/code-style.md|ai-docs/doc-convention.md) ;; *) exit 0 ;; esac; set -- ai-docs/plans/*.spec.md.state.md; [ -e \"$1\" ] || exit 0; [ -f ai-docs/plans/.task-inflight ] && exit 0; printf 'BLOCKED: write into an instruction file while an interview is live.\\n\\nState file(s) present: %s-- a /task or /interview run is between its round 1 and Step 8, and AGENTS.md > Learning Log > Boundary rule 2 says an instruction file (AGENTS.md, CLAUDE.md, .claude/**, ai-docs/code-style.md, ai-docs/doc-convention.md) is edited only by /improve or on the owner'\\''s explicit imperative aimed at the edit itself -- \"the instruction should say X\" is a diagnosis, not a licence (ai-docs/learnings.md 2026-09-08).\\n\\nLegal routes:\\n  * park the diagnosis: append to ai-docs/harness-gaps.md with a target: field (never an instruction-file edit)\\n  * an /improve run or the owner'\\''s own harness edit: use a branch that carries no ai-docs/plans/*.spec.md.state.md, or retire the state file first (git mv ... ai-docs/plans/ignored/)\\n  * Steps 8-12 of /task are exempt by design: they carry ai-docs/plans/.task-inflight, which this hook honours.\\n' \"$(printf '%s ' ai-docs/plans/*.spec.md.state.md)\" >&2; exit 2"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; if [ -n \"$f\" ] && [ \"${f##*.}\" = \"rs\" ] && [ -f \"$f\" ]; then rustfmt --edition 2024 \"$f\" >/dev/null 2>&1 || true; fi; } || true",
+            "timeout": 30,
+            "statusMessage": "Formatting Rust..."
+          },
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty'); case \"$f\" in *.rs) ;; *) exit 0 ;; esac; [ -f \"$f\" ] || exit 0; [ -x ai-docs/scripts/check-panic-calls.sh ] || exit 0; out=$(bash ai-docs/scripts/check-panic-calls.sh \"$f\" 2>&1) || { printf '\\n[panic-gate] %s\\n[panic-gate] a shipped path returns an error the caller can render or retry. A call that genuinely cannot fire carries its reason on its own line or the line above, in the PANIC: form, and gets its row in ai-docs/panic-index.md in the same commit -- the comment states the justification itself and does not point at the index, which is the outward reference the comment ban forbids.\\n' \"$out\" >&2; exit 2; }; exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking for panicking calls..."
+          },
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty'); [ -n \"$f\" ] || exit 0; [ -f \"$f\" ] || exit 0; hits=$(grep -nE '(postgres(ql)?|redis|amqp|mysql)://[^:@/[:space:]]+:[^@/[:space:]]+@' \"$f\" | grep -vEi ':[^@/[:space:]]*(password|passwd|secret|changeme|example|placeholder|xxxx|<[^>]+>|\\$\\{[^}]+\\})[^@/[:space:]]*@'); if [ -n \"$hits\" ]; then printf 'SECRET LEAK: %s contains a connection string carrying a live-looking password.\\n%s\\n\\nA credential never enters a tracked file -- not a fixture, not an example, not a comment (AGENTS.md > Permissions). The database connection belongs in the environment variable the process reads, and a document names the variable rather than a value.\\nIf this is real, rotate it now; editing it out of the working tree does not unpublish a committed secret.\\nIf it is an example, make the password obviously fake (postgres://reader:PASSWORD@localhost/reader).\\n' \"$f\" \"$hits\" >&2; exit 2; fi; exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking for leaked credentials..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); if echo \"$cmd\" | grep -qE '(^|[ ;&|`])git[[:space:]]+push\\b' && ! echo \"$cmd\" | grep -qE 'gh[[:space:]]+pr[[:space:]]+create'; then branch=$(git branch --show-current 2>/dev/null); if [ -n \"$branch\" ] && [ \"$branch\" != \"master\" ]; then pr_json=$(gh pr view --json number,state,url 2>/dev/null); if [ -n \"$pr_json\" ]; then state=$(echo \"$pr_json\" | jq -r '.state // empty'); number=$(echo \"$pr_json\" | jq -r '.number // empty'); if [ \"$state\" = \"OPEN\" ]; then printf '\\n[pr-sync] open PR #%s on %s -- re-read the body with: gh pr view %s --json title,body -- and sync via gh pr edit if scope/names/ACs drifted (AGENTS.md > Workflow AXIOM 2). Exception: this push immediately preceded gh pr create.\\n' \"$number\" \"$branch\" \"$number\" >&2; exit 2; fi; fi; fi; fi",
+            "timeout": 15,
+            "statusMessage": "Checking PR body sync..."
+          },
+          {
+            "type": "command",
+            "command": "input=$(cat); marker=ai-docs/plans/.task-inflight; [ -f \"$marker\" ] || exit 0; cmd=$(printf '%s' \"$input\" | jq -r '.tool_input.command // empty' 2>/dev/null); printf '%s' \"$cmd\" | grep -qE '(^|[^>])>[[:space:]]*\"?ai-docs/plans/\\.task-inflight|claim: [^>]*>>[[:space:]]*\"?ai-docs/plans/\\.task-inflight' || exit 0; [ -z \"$(printf '%s' \"$input\" | jq -r '.agent_id // empty' 2>/dev/null)\" ] || exit 0; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty' 2>/dev/null); [ -n \"$sid\" ] || exit 0; [ \"$(sed -n 's/^owner: //p' \"$marker\" | tail -n 1)\" = \"$sid\" ] || printf 'owner: %s\\n' \"$sid\" >> \"$marker\"; exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); marker=ai-docs/plans/.task-inflight; [ -f \"$marker\" ] || exit 0; printf '%s' \"$input\" | grep -q '\"stop_hook_active\"[[:space:]]*:[[:space:]]*true' && exit 0; sid=$(printf '%s' \"$input\" | jq -r '.session_id // empty' 2>/dev/null); owner=$(sed -n 's/^owner: //p' \"$marker\" | tail -n 1); if [ -n \"$owner\" ] && [ -n \"$sid\" ] && [ \"$owner\" != \"$sid\" ]; then exit 0; fi; if tail -n 3 \"$marker\" | grep -q '^handback: '; then sed -i 's/^handback: /handback-spent: /' \"$marker\" 2>/dev/null && exit 0; printf 'WARNING: /task in-flight marker %s carries a hand-back token this hook could not spend (file not writable). The stop gate stays disarmed until the token line is gone. Remove it by hand now.\\n' \"$marker\" >&2; exit 0; fi; printf 'blocked: %s\\n' \"$(date -u +%FT%TZ)\" >> \"$marker\" 2>/dev/null || true; echo 'BLOCKED: /task is in-flight (ai-docs/plans/.task-inflight exists) and this turn neither advanced the flow nor handed control back. Either take the next determined action now (naming it is not performing it), or hand back explicitly: post the blocking question to the user AND append \"handback: <ISO-8601 UTC> <reason>\" to ai-docs/plans/.task-inflight in this same turn. If the task is complete, remove the marker (Step 12 item 13). A hand-back token is spent by this hook the moment it permits one stop, so it permits exactly one: hand back again for the next one. Never edit the marker to resume.' >&2; exit 2",
+            "timeout": 10,
+            "statusMessage": "Checking /task in-flight state..."
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Edit(./**)",
+      "Edit(.claude/**)",
+      "Bash(cargo *)",
+      "Bash(rustc *)",
+      "Bash(rustfmt *)",
+      "Bash(rustup *)",
+      "Bash(make *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(ast-index *)",
+      "Bash(psql *)",
+      "Bash(podman *)",
+      "Bash(python3 *)",
+      "Bash(actionlint *)",
+      "Bash(shellcheck *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(jq *)",
+      "Bash(awk *)",
+      "Bash(sort *)",
+      "Bash(wc *)",
+      "WebFetch",
+      "WebSearch"
+    ],
+    "deny": [
+      "Read(.idea/**)",
+      "Edit(.idea/**)",
+      "Read(**/.env)",
+      "Edit(**/.env)",
+      "Read(**/.env.local)",
+      "Edit(**/.env.local)",
+      "Read(**/.env.development)",
+      "Edit(**/.env.development)",
+      "Read(**/.env.test)",
+      "Edit(**/.env.test)",
+      "Read(**/.env.staging)",
+      "Edit(**/.env.staging)",
+      "Read(**/.env.production)",
+      "Edit(**/.env.production)",
+      "Read(**/.env.secret)",
+      "Edit(**/.env.secret)",
+      "Read(**/.env.secrets)",
+      "Edit(**/.env.secrets)",
+      "Read(**/secrets*)",
+      "Read(**/.secrets*)",
+      "Edit(**/secrets*)",
+      "Edit(**/.secrets*)"
+    ]
+  }
+}

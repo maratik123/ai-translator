@@ -1,0 +1,37 @@
+# Agent docs — index
+
+The full map of `ai-docs/**` and the harness's supporting pages. `AGENTS.md` § *Agent Docs* keeps only the handful read on nearly every task; everything else lives here, one click away.
+
+| Path | Purpose |
+|------|---------|
+| [`ai-docs/context.md`](context.md) | Project context (orientation) — read on demand |
+| [`ai-docs/context-status.md`](context-status.md) | Per-task implementation log — read on demand |
+| [`ai-docs/plans/INDEX.md`](plans/INDEX.md) | Plan index — statuses and dependency order |
+| `plans/*.spec.md` / `*.design.md` | Active task spec + design, committed from creation (`/interview` and Step 6); `*.progress.md` and `*.spec.md.state.md` are committed too and retired to `plans/ignored/` before the pull request |
+| `ai-docs/plans/done/` | Completed plans (spec + design, implemented) |
+| `ai-docs/scripts/` | Shared shell guards: hook regression suites, CI gates over specs, registers and the harness-gaps log, the document-edit guard, the script-shape checker, and the three language gates (comment references, panicking calls, dependency direction) — every script whose caller is not a single skill (`claude-tools-hierarchy.md` § Shell guards has the placement rule and one row per script) |
+| [`ai-docs/deferred/_inbox.jsonl`](deferred/_inbox.jsonl) | Triage queue — rows from completed specs |
+| [`ai-docs/templates/progress-format.md`](templates/progress-format.md) | Canonical `.progress.md` format |
+| [`ai-docs/templates/inbox-row.md`](templates/inbox-row.md) | Canonical `_inbox.jsonl` row shape |
+| [`ai-docs/domain-invariants.md`](domain-invariants.md) | Cache keys, retrieval, request parameters, validation, eval conditions, schema and secrets — read before touching those paths |
+| [`ai-docs/key-decisions.md`](key-decisions.md) | Key decisions with rationale, each pointing at its source in `docs/` |
+| [`ai-docs/code-style.md`](code-style.md) | Rust code-style reference — read on demand |
+| [`ai-docs/rust-api-naming.md`](rust-api-naming.md) | Naming rules including the `_unchecked` contract |
+| [`ai-docs/doc-convention.md`](doc-convention.md) | Doc-comment conventions and the comment-reference ban — read on demand |
+| [`ai-docs/rust-test-conventions.md`](rust-test-conventions.md) | Where a test lives, case tables, exact assertions, the real database, concurrency |
+| [`ai-docs/dependency-versions.md`](dependency-versions.md) | Live-lookup recipes for every claim about a version, a dependency or a tool |
+| [`ai-docs/delegation-rules.md`](delegation-rules.md) | The five-phase delegation lifecycle — read before any committing/long-running spawn |
+| [`ai-docs/hook-verification.md`](hook-verification.md) | The three MUSTs for proving a `settings.json` hook fires |
+| [`ai-docs/agent-writing-style.md`](agent-writing-style.md) | Binary-rule writing style for dual-model readability |
+| [`ai-docs/claude-tools-hierarchy.md`](claude-tools-hierarchy.md) | Tool / Subagent / Skill / Hook inventory |
+| [`ai-docs/propagation-groups.md`](propagation-groups.md) | Per-file sync groups for the Propagation Rule |
+| [`ai-docs/corrections-log.md`](corrections-log.md) | Learning-Log carve-outs + field glossary |
+| [`ai-docs/improve-eval-contract.md`](improve-eval-contract.md) | Why `/improve`'s eval dispatch is the parent's, and the forbidden degraded paths |
+| [`ai-docs/instruction-file-validation.md`](instruction-file-validation.md) | Dual-model instruction-clarity test methodology |
+| [`ai-docs/task-run-schema.md`](task-run-schema.md) | `task-runs.jsonl` schema, operating rules and test-case registry |
+| [`ai-docs/panic-index.md`](panic-index.md) | Every marked panicking call in shipped code, with its justification |
+| [`ai-docs/templates/learnings-entry.md`](templates/learnings-entry.md) | Canonical `learnings.md` entry skeleton — consult instead of the live log |
+| [`ai-docs/learnings.md`](learnings.md) | Corrections log — feed for `/improve` |
+| [`ai-docs/harness-gaps.md`](harness-gaps.md) | Harness diagnoses — the second learning log; an entry's `**Forge:**` / `**Closed by:**` field names the forge or the pull request that dealt with it, and only a forge writes either (see AGENTS.md § *Learning Log*) |
+
+**Reading order for a newcomer to this repo:** `context.md` → [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) → `domain-invariants.md` → `key-decisions.md`. Everything else is read when the task touches it.

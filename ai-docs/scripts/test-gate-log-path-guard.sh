@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# Regression suite for the PreToolUse gate-log-path hook guard.
+#
+# The guard refuses a gate whose output is redirected to a BARE FILENAME, which
+# lands in the repository root. Such files accumulate under whatever name each
+# run invents, and a rule naming one filename holds for none of them — which is
+# why the path is a gate rather than a sentence. The root stays un-ignored on
+# purpose, so anything that escapes this hook is at least visible to the tree
+# probes the flows run.
+#
+# The rule is deliberately a SHAPE, not a path list: any target containing a
+# slash passes (tmp/x.log, /dev/null, a scratchpad path, ../x). Only a bare filename
+# is refused. That keeps the guard from having an opinion about where scratch
+# lives outside the work tree.
+#
+# Anti-drift: this suite runs the LIVE hook body, extracted with jq. No regex is
+# copied here.
+#
+# Verdict convention: the body exits 2 to block a tool call.
+#
+# Exit 0 = every fixture behaves as specified. Exit 1 = regression.
+
+set -uo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  test-gate-log-path-guard.sh    run the whole suite; it takes no arguments
+USAGE
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root" || exit 1
+
+settings=".claude/settings.json"
+body=$(jq -r '.hooks.PreToolUse[].hooks[].command
+  | select(contains("BLOCKED: gate output redirected into the repository root"))' "$settings")
+[ -n "$body" ] || { echo "FAIL: gate-log-path guard body not found in $settings"; exit 1; }
+
+failures=0
+
+verdict() {
+  local payload rc
+  payload=$(jq -n --arg c "$1" '{tool_input: {command: $c}}')
+  printf '%s' "$payload" | bash -c "$body" >/dev/null 2>&1 && rc=0 || rc=$?
+  if [ "$rc" -eq 2 ]; then echo BLOCK; else echo ALLOW; fi
+}
+
+check() {
+  local got
+  got=$(verdict "$2")
+  if [ "$got" != "$1" ]; then
+    printf 'FAIL: expected %s, got %s, for: %s\n' "$1" "$got" "$2"
+    failures=$((failures + 1))
+  fi
+}
+
+while IFS=$'\t' read -r want cmd; do
+  case "$want" in ''|'#'*) continue ;; esac
+  check "$want" "$cmd"
+done <<'FIXTURES'
+# --- must block: a bare filename in the repository root ---
+BLOCK	cargo test --workspace > gate.log 2>&1 && echo GATE-GREEN || echo GATE-RED
+BLOCK	cargo build --workspace > build.gate.log 2>&1
+BLOCK	make verify > f1verify.gate.log 2>&1
+BLOCK	cargo clippy --workspace > lint.gate.log 2>&1
+BLOCK	cargo fmt --all --check 2> fmt.log
+BLOCK	actionlint .github/workflows/*.yml > actionlint.gate.log 2>&1
+BLOCK	shellcheck -s bash x.sh > s9lint.gate.log 2>&1
+BLOCK	cd /home/dev/ai-translator && cargo test --workspace >> m2.gate.log 2>&1
+# --- must allow: any target with a slash, and any non-gate command ---
+ALLOW	mkdir -p tmp && cargo test --workspace > tmp/gate.log 2>&1 && echo GATE-GREEN || echo GATE-RED
+ALLOW	grep -E "^(error|test result)" tmp/gate.log
+ALLOW	cargo test --workspace > /dev/null 2>&1
+ALLOW	cargo test --workspace > "$SCRATCH/gate.log" 2>&1
+ALLOW	cargo build --workspace > ../out.log 2>&1
+ALLOW	cargo test --workspace 2>&1 | tee tmp/gate.log
+ALLOW	git log --oneline > out.txt
+ALLOW	jq -r '.x' settings.json > out.json
+ALLOW	cargo test --workspace
+ALLOW	make verify
+FIXTURES
+
+# The escape shape is what makes the guard cheap; assert it survives verbatim.
+grep -qF -- '[A-Za-z0-9._-]+([[:space:]]|$)' <<<"$body" || {
+  echo "FAIL: the bare-filename shape is no longer matched verbatim"
+  failures=$((failures + 1))
+}
+
+# --- the belt this guard is the braces for -----------------------------------
+# The hook matches COMMAND TEXT over a closed class of gate commands, so
+# anything that lands a log in the root by another route — a script, a tee, a
+# tool, a command shape outside the class — escapes it. What makes that escape
+# LOUD is the absence of a root ignore rule: `git status --porcelain` then
+# reports the file, and every flow probes that and stops.
+#
+# `git check-ignore` answers about a pathname, so these two assertions create
+# no files and cost nothing.
+if git check-ignore -q -- root.gate.log 2>/dev/null; then
+  printf 'FAIL: a *.gate.log in the repository root is ignored again — %s\n' \
+    "$(git check-ignore -v -- root.gate.log)"
+  printf '      A root log file must be visible to git status; tmp/ is where scratch goes.\n'
+  failures=$((failures + 1))
+fi
+if ! git check-ignore -q -- tmp/root.gate.log 2>/dev/null; then
+  echo "FAIL: tmp/ no longer ignores scratch — the canonical gate-log path is not ignored"
+  failures=$((failures + 1))
+fi
+
+if [ "$failures" -eq 0 ]; then
+  echo "gate-log-path guard: all fixtures behave as specified"
+  exit 0
+fi
+printf 'gate-log-path guard: %d check(s) failed\n' "$failures"
+exit 1

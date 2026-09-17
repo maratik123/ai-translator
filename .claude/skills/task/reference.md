@@ -1,0 +1,334 @@
+# /task — Reference
+
+Reference material extracted from `SKILL.md` so the SKILL body stays a thin workflow (the thin-`SKILL.md` + supporting-file split `/ai-audit` Checklist K prescribes). The SKILL body owns the workflow steps; this file owns reference / troubleshooting / detail material; [`preambles.md`](preambles.md) owns the step-by-step sequences behind the four `⚡` preambles.
+
+## Design Amendment recipe (re-entrant — triggered from Step 8 or Step 11)
+
+If implementation (Step 8) reveals a necessary deviation from the design, **or** a self-review finding (Step 11) requires a design change rather than a code fix:
+
+1. **Stop** the current step immediately. Do not silently continue with the deviated approach.
+2. **Surface to user:** describe what changed and why the design must be updated. Wait for approval.
+3. **Spawn the `design-writer` Subagent** to update `ai-docs/plans/YYYY-MM-DD-name.design.md` to reflect the new approach. The orchestrator MUST NOT edit `*.design.md` directly — the `design-writer` Subagent owns ALL writes to `*.design.md` (per the AXIOM in `SKILL.md` above the Design Amendment header). Orchestrator-side direct edits are FORBIDDEN.
+   ```
+   Agent(subagent_type="design-writer", prompt="
+     Read .claude/agents/design-writer.md and follow it.
+     Spec: ai-docs/plans/YYYY-MM-DD-name.spec.md
+     Existing design: ai-docs/plans/YYYY-MM-DD-name.design.md
+     Context: design must be amended during implementation / self-review — describe what changed and the user-approved direction.
+   ")
+   ```
+   On Subagent return, immediately verify the design file was written (`ls ai-docs/plans/YYYY-MM-DD-name.design.md`). If missing — re-spawn the Subagent; do NOT transcribe its text output into the file.
+4. Re-run design review — same as Step 7 (max 3 rounds total across all design-review runs). **The prompt is the closed list and nothing else** (`design-review.md` § Spawn prompt contract): five items, no `Context:` line, no description of what changed, no amendment history. The amended design is on disk and the reviewer reads it; anything you add becomes its finding #1 (`major`, `PROMPT-CONTAMINATION`) and is then ignored:
+   ```
+   Agent(subagent_type="design-review", prompt="
+     Read .claude/agents/design-review.md and follow it.
+     Spec: ai-docs/plans/YYYY-MM-DD-name.spec.md
+     Design: ai-docs/plans/YYYY-MM-DD-name.design.md
+     Progress: ai-docs/plans/YYYY-MM-DD-name.progress.md
+     Round: <N>
+   ")
+   ```
+5. **On GO** → its notes route by `SKILL.md` Step 7's table (design-internal ones folded in without another round; a spec-amending one goes to the owner's three options), then resume from the step that triggered the amendment:
+   - Triggered from Step 8 → resume Step 8 (continue the remaining subtasks)
+   - Triggered from Step 11 → mark the finding `✅ Fixed (design amended)`, then return to Step 10
+6. **On ITERATE** → fix the design and re-run design review (counts against the 3-round limit).
+7. **On STOP** → surface to user; do not proceed until the design issue is resolved.
+
+> Silently implementing a deviation without triggering Design Amendment — FORBIDDEN.
+
+## Spec Amendment recipe (re-entrant — triggered from Step 7 GO-with-notes resolution)
+
+If a Step 7 design-review GO verdict surfaces a `note` / `minor` / recommendation whose resolution requires a change to the **spec** (a Scope item, a Key decision or an AC) — not just an in-place design fold-in:
+
+1. **Classify each note** at Step 7 close: **design-internal** (`design-writer` folds it in; design-review does not run again — `SKILL.md` Step 7's table) vs **spec-amending** — and a note is spec-amending **only** when it is one of the four triggers of `SKILL.md`'s AXIOM *the orchestrator originates no spec row* (a missing row the task's words require; an unsatisfiable or contradictory row; a row outside the spec's zone; the owner's own words). A note about code the task merely touches is design-internal or a follow-up, whatever its severity. "The spec does not allow the design's fix" is trigger (c) against the blocking row — restate it as the outcome it protects, or strike it — never a widening that writes the fix into the spec. Mixed batches are allowed; spec-amending notes trigger this recipe, design-internal notes proceed normally.
+2. **Stop before Step 8.** Do not begin implementation until the owner has chosen a route for every spec-amending note, and do not route one yourself — FORBIDDEN. The design doc is the implementation contract built **against the spec**; if the spec changes, the contract must be re-established and re-verified.
+3. **Surface to the owner via `AskUserQuestion`, one question per note, with `SKILL.md` Step 7's three options and no others** — (1) amend the spec, then the full Step 6 → Step 7 cycle; (2) fix the design only: `design-writer` folds the design-level part in, the spec stays as written, no design-review; (3) leave it as it is. Name the trigger, quote the note, the row or rows and the reason, and propose option (1)'s wording as an outcome. Each option's description states its consequence — under (2) and (3) the spec row stands as written, and `self-review` holds the diff to it as to any row. You may recommend; the owner picks. **The spec is never amended to match the shape the design discovered:** a mechanism the design chose stays in the design, where the design's own rounds judge it. The question carries its route (`SKILL.md` AXIOM *a scope question carries its route*) and never offers "do the work now" and "amend the spec" as one option.
+4. **Record the answer first, whichever option it is:** append the question and the owner's verbatim answer to `prior_qa` in the state file under the next round number, advance `round`, and cite that entry in the progress file's `## GO notes` row. On option (2), spawn `design-writer` for the design-level part and continue at Step 8 — no design-review. On option (3), change nothing and continue at Step 8. The rest of this recipe is option (1).
+
+   **On option (1) — amend the spec via the `spec-writer` Subagent.** The orchestrator MUST NOT edit `*.spec.md` directly (per the AXIOM in `SKILL.md` above the Design Amendment header). The amended row anchors to the `prior_qa` entry recorded above (`spec-writer.md` Rule 11); without it `check-spec-anchors.sh` refuses the row. Spawn `spec-writer` for that synthetic round (`extra_context` carries the amendment description; the anchor is the `prior_qa` entry, not this field); the Subagent re-writes the spec on disk. Orchestrator-side direct `*.spec.md` edits with `Edit` / `Write` are FORBIDDEN — mirrors `.claude/skills/interview/SKILL.md` § Anti-patterns ("Mutating the spec yourself").
+5. **Re-enter Step 6 (`design-writer` Subagent)** with explicit context: "spec was amended at Step 7 GO-with-notes resolution — re-verify decomposition and ACs against the new spec":
+   ```
+   Agent(subagent_type="design-writer", prompt="
+     Read .claude/agents/design-writer.md and follow it.
+     Spec: ai-docs/plans/YYYY-MM-DD-name.spec.md
+     Existing design: ai-docs/plans/YYYY-MM-DD-name.design.md
+     Context: spec was amended during Step 7 GO-with-notes resolution.
+     Re-verify decomposition and ACs against the new spec. Update the design doc to reconcile any drift.
+   ")
+   ```
+6. **Re-enter Step 7 (design-review)** against the new (spec, design) pair — same as the original Step 7 (counts against the 3-design-round-cap, which applies to the merged total of pre- and post-amendment iterations). **The prompt is the closed list and nothing else** (`design-review.md` § Spawn prompt contract): five items, no `Context:` line, no "verify the design now matches the amended spec" — that is a reading directive, and steering where a gate looks is contamination even when every word of it is true. This template shipped one (`ai-docs/harness-gaps.md` 2026-09-02):
+   ```
+   Agent(subagent_type="design-review", prompt="
+     Read .claude/agents/design-review.md and follow it.
+     Spec: ai-docs/plans/YYYY-MM-DD-name.spec.md
+     Design: ai-docs/plans/YYYY-MM-DD-name.design.md
+     Progress: ai-docs/plans/YYYY-MM-DD-name.progress.md
+     Round: <N>
+   ")
+   ```
+7. **On the new GO** → its notes route by `SKILL.md` Step 7's table, then proceed to **Step 8**. Step 8's first-action GO-notes verification ("every note / minor / recommendation from the latest design-review GO has been written back into the design document") now references the **new** GO verdict; pre-amendment notes are no longer authoritative.
+8. **On ITERATE** → fix the design (or re-amend the spec if a contradiction surfaces) and re-run design-review (counts against the 3-round cap).
+9. **On STOP** → surface to user; do not proceed until the design / spec issue is resolved.
+
+> Amending the spec and folding the change into the design without the Step 6 → Step 7 re-run is FORBIDDEN — the design would be built against the old spec without ever being verified against the new one. Folding a spec-amending note's design-level part while the spec stays as written is the owner's option (2), never the orchestrator's call.
+
+## Steps 1–5 — spec creation delegation (detail)
+
+**The `args` hand-off shape (binding — SKILL.md § Steps 1–5 AXIOM names the sections; this is the template to copy):**
+
+```
+## TASK (verbatim)
+<the user's text, byte-for-byte, fenced>
+## RECON (unverified claims)
+READ: <files opened + commands run>
+NOT READ: <what was not opened, or the sampling rule used>
+<findings as claims — no verdicts, no instructions, no reading directives, NO FIGURES: a count, a size, a line total or a percentage is dropped, not carried — the writer re-derives every number it is handed (spec-writer.md Rule 8), so a figure in RECON buys a round of re-measurement and then a spec that stores it (measured 2026-09-08: ~20 figures in, 31 tool calls of re-measuring before the first spec line, a `### Sizing` section out). Legal claim shapes: a path exists / is tracked / is ignored; a config key is set to a value; a rule text says X (quoted); a tool is / is not installed; a file class exists ("shebang files that are not named with the shell extension: one, and it is a symbolic link to a sibling that is" names the member, not the count)>
+ISSUE BODY SUPERSEDED: <yes | no — `yes` when TASK reframes what the persisted issue body says; the interview then asks the owner whether to update the issue before spawning (interview/SKILL.md Step 1)>
+## DELTA
+<every constraint present in this hand-off but absent from TASK, one line each, with its source — or the literal line `DELTA: none`>
+```
+
+`/task` does not duplicate the interview workflow. Scope extraction, key-decision confirmation, tracking-issue resolution, spec writing, and the cross-link comment are owned by `/interview` (`.claude/skills/interview/SKILL.md`). Treat these five steps as a single delegated phase.
+
+**Already have a spec?** If a saved spec for this task already exists under `ai-docs/plans/` (e.g. the user previously ran `/interview` to draft the spec without implementing), confirm with the user that this is the spec to implement, then **skip to Step 6** — do not re-run the interview.
+
+**Otherwise, run the interview** by invoking the `interview` Skill via the `Skill` Tool, passing the original `$ARGUMENTS` through:
+
+```
+Skill(skill="interview", args="$ARGUMENTS")
+```
+
+The interview will:
+
+- detect entry mode (issue ref / free text / empty) and load the issue body if applicable
+- extract and confirm scope (in / out / deferred)
+- ask any clarifying questions (max 4 rounds, max 3 questions per round)
+- resolve or create the tracking GitHub issue
+- save the spec at `ai-docs/plans/YYYY-MM-DD-name.spec.md` with `**Tracked in:** #N` and an `## Acceptance Criteria` table
+- post a cross-link comment on the tracking issue (unless `Tracked in: none`)
+
+When the Skill call returns, `/interview`'s instructions and the saved spec are both in conversation context. Resume with the next paragraph of `/task` (the spec-only check, then Step 6).
+
+**Spec-only run.** If the user wants to stop after the interview ("just draft the spec, defer the implementation"), move the spec to `ai-docs/plans/deferred/`, update `INDEX.md` (move the row to **Deferred plans**, status `🟡 spec-only`), and **do not proceed to Step 6**. The spec can be picked up later via the deferred-plan-activation preamble above.
+
+**Before Step 6:** confirm `ai-docs/plans/YYYY-MM-DD-name.spec.md` exists and the user has approved its `## Acceptance Criteria`.
+
+## Step 8 — progress-file creation template (detail)
+
+Create `ai-docs/plans/YYYY-MM-DD-name.progress.md` at start using the canonical format spec at [`ai-docs/templates/progress-format.md`](../../../ai-docs/templates/progress-format.md). Required fields: `**Branch:**`, `**base_commit:**`, `**Last build:**`, `**current_step:**`, `**last_passed_gate:**`, `**entry_args:**`, plus a `## Decisions log` h2 section. Optional: `**parent_skill:**` (when `/task` itself was invoked from another skill — rare). For `/task` flows also include `**Issue:**` and `**Spec:**`.
+
+Record base commit, branch, and `entry_args` in the progress file header immediately:
+
+```
+**Branch:** feat/YYYY-MM-DD-name
+**base_commit:** <output of `git rev-parse HEAD`>
+**current_step:** Step 8 — Implementation start
+**last_passed_gate:** cargo build --workspace | <ISO-8601 UTC timestamp> | <commit SHA from git rev-parse HEAD>
+**entry_args:** <original $ARGUMENTS at /task entry — bare issue ref (`#348`/`348`), `activate paint-style`, free text (`add foo to bar`), or `(none)` for empty entry>
+```
+
+Then `git add -f` the progress file and commit it — the `-f` is needed exactly once, because the path matches a `.gitignore` glob and the glob stops applying once the file is tracked. Step 12 sub-step 9a `mv`s it to `ai-docs/plans/ignored/` and commits the deletion.
+
+The `**entry_args:**` field is recorded ONCE at Step 8 creation and **read-only thereafter** — Steps 9–12 do NOT touch it. On a lost-arguments re-entry (empty `$ARGUMENTS` after compaction), this recorded value is the canonical entry reference per `⚡ First`'s lost-arguments clause.
+
+## Step 9.5 — documentation update (detail)
+
+Update content files only — **do not move spec/design to `done/` yet** (that happens at Step 12):
+
+1. **`ai-docs/context-status.md`** (detailed per-issue log) — append this task's implementation-status entry: the per-issue bullet capturing design decisions, traps, and invariants worth not rediscovering (the same shape as the existing `## Status` bullets there). This is where the growing per-issue log lives — **not** `context.md`, which stays a thin orientation page. The heading's PR locator is written as the literal `#TBD-at-Step-12` and filled by Step 12 sub-step 10a — the value does not exist at this step, and the placeholder is the token that sub-step and the CI guard both key on.
+2. **`ai-docs/context.md`** (orientation) — update only if a block's high-level state changed: bump the `## Status` summary bullet for the affected block, resolve open questions answered during implementation, keep the Architecture / Track-artifact orientation current.
+3. **Repo-root user-facing docs** — update any that this change contradicts (a README status line, a runbook). Skip when the change touches none.
+
+**Two measurement rules — full text (the SKILL body carries the binding sentence of each):**
+
+**No counts here — name the things, do not tally them.** A test count, a package tally, an "N sites" figure, a file count: none of it belongs in `context-status.md` or `context.md`. The test that settles it: ask what breaks if the number is simply absent. The answer here is *nothing* — no flow reads these figures (every reference to `context-status.md` in this harness is a writer, a staging list, or a "read on demand" pointer), each is one command away, and the file's own header says it captures *decisions, traps and invariants worth not rediscovering*, which a count is none of. Storing one buys nothing and guarantees a falsehood at the next commit. Write what landed and let the reader count: «the tables the migration creates», named right there, beats «10 tables». Measured history of the alternative: three figures written into this file, all three later found false (`ai-docs/learnings.md` 2026-09-02 «nine sentinels» carried from a delegate's return; plus a test count and a production-file count corrected in harness forge-8).
+
+**Where a run's figures DO belong.** `ai-docs/metrics/task-runs.jsonl`, appended at Step 12 sub-step 5a. That record measures a run that is over — its progress file is retired, its session is gone — and its value is the series across runs, not any one row. A measured number earns storage exactly when it cannot be re-measured and the trend is the point. Everything else is re-measurable, and re-measurable means it does not need storing.
+
+**A `file:line` you must write anyway** — a panic-index row locator is the live case — is re-derived **in this turn, after the last edit**, with the command that produces it (the locator `rg` re-run after the final `cargo fmt --all`). **NEVER** transcribe it from a subagent's return summary: it is a claim (AGENTS.md § *Workflow*), and a `code-writer` has already reported one package's figure for another's. If it contradicts an existing durable baseline, the resolution is a **fresh measurement**, never picking one of the two.
+
+**A diff that REMOVES something has a wider doc surface than one that adds.** Prose enumerates what exists, so a deleted dep edge / flag / module / panic-index row leaves assertions scattered through documents you are otherwise editing correctly. Adding a description of what is now true does **not** discharge the obligation to delete what is now false — and the two routinely live in the same file, paragraphs apart. Concrete trigger: for every name your diff removed, `grep -ni '<removed-name>' <every doc you are touching>` **before** closing the edit — case-insensitive, because this is a completeness sweep over prose (AGENTS.md § *Propagation Rule*; identifier-like names get capitalised mid-sentence). The salience of a removal that was an *acceptance criterion* is what makes this feel already-handled.
+
+## Step 8 — first-action GO-notes verification (detail)
+
+Verify both spec and design (with GO verdict) exist AND that **every note / minor / recommendation from the latest design-review GO verdict has been written back into the design document**. "Applied in code later" is NOT the same as "resolved in the design"; the design doc is the implementation contract. Scan the most recent `## Self-Review (Round N)` / `## Verdict: GO` block emitted by `.claude/agents/design-review.md` — for each `## Issues` row of `Severity: note` / `minor` and each `## Recommendations` bullet, confirm the corresponding API table / helper list / risk table / decomposition section of `ai-docs/plans/YYYY-MM-DD-name.design.md` was updated to match. If any note is unresolved → stop and route it by `SKILL.md` Step 7's table: a design-internal note goes to `design-writer` to fold in, and design-review does not run again; a spec-amending note goes to the owner's three options. The orchestrator never edits the design itself (the subagent-owned-writes AXIOM). A note the owner chose to leave (option (3)) is resolved by that recorded answer, not by a design edit. Every note, minor and recommendation gets its row in the progress file's `## GO notes` before the first subtask (`ai-docs/templates/progress-format.md`), and only then begins coding. Missing spec, missing design, missing GO verdict, OR unresolved GO-notes = previous steps incomplete.
+
+## Step 9 — verify list (full)
+
+1. `cargo build --workspace --all-targets` — compiles clean
+2. `cargo test --workspace` — all green
+3. `make doc-check` — clean, **required** when the change touched a doc comment or added a public item; skipped otherwise (say which, and why, in the verify table)
+4. `cargo fmt --all --check` — no diff
+5. `cargo clippy --workspace --all-targets -- -D warnings` — clean (it lints the test targets too; if you narrowed it to one crate while iterating, re-run it whole before Step 10)
+6. `make lock-check` — only when dependencies moved; a failure means the manifest was edited without its lockfile
+7. **actionlint / shellcheck gate** — `actionlint <file>` on every created or modified `.github/workflows/*.yml`, `shellcheck <file>` on every created or modified `*.sh`. Skip only when none were touched. See AGENTS.md § *Build & Test*.
+8. **`make file-limits`** — clean. CI's Lint job runs it, and no other gate on this list covers it: the linter stays green on a file that breaks the hard line limit, so skipping this one records `ALL PASS` on a tree CI will reject.
+9. **`make comment-refs`** — clean. No comment in a gated file (`*.rs`, `*.sh`, `*.sql`, `*.yml`, `*.yaml`, `.gitignore`, `Makefile`, `.githooks/**`) carries an outward reference. A non-zero exit that names an unreadable file is an instrument failure, not a pass. Running `make verify` discharges items 1 through this one and 9a–9b together.
+9a. **`make panic-calls`** — clean. Every panicking call in shipped code carries its marker, and every marked call has its row in the index.
+9b. **`make import-guard`** — clean. No binary target reaches a forbidden crate through its **non-dev** dependency graph. A dev-dependency is legal by construction, so a finding is a real shipped dependency, and the fix is the dependency — never the rule table.
+10. **Panic-index sync** — see `## Step 9 — panic-index sync (detail)` below.
+11. **Domain-invariant sweep** — see `## Step 9 — domain-invariant sweep` below.
+12. For each AC — confirm covered by test or manual verification. **An AC states a condition, not a command** (`spec-writer.md` Rule 9/PROC-3): for a **measurable** AC — one naming a regexp, a glob, a scope, a symbol or a test — **you write the command that checks it**, run it over that AC's own stated scope, and treat the result as authoritative — not `design-review`'s narrower operative reading, not a delegate's "flagged, left as-is". Record the command you used in the progress file's `verifying command` column; it belongs to you and it is expected to change between rounds. An AC row that *does* carry a shell command is a spec defect — re-derive the criterion, run your own command, and raise it. See § *Patterns* 1 in [`SKILL.md`](SKILL.md#1-step-9s-per-ac-sweep-is-load-bearing-not-ceremonial).
+13. Show a `| # | Criterion | Test / Verification | Status |` summary table.
+14. On ALL PASS → proceed to Step 9.5.
+
+## Every-group handoff (rationale)
+
+During Step 8 the orchestrator NEVER executes subtask code in its own context. Every group fans out through `/context-reset` — including the first group, and including designs whose total subtask count is one. The orchestrator's role during Step 8 is strictly *to spawn group handoffs, parse each subagent's progress-file delta, re-validate state, and spawn the next group's handoff* until the design's `## Handoff plan` is exhausted. Re-state the rule to yourself before deciding the next action: *"Did I just receive a group return? Then the next action is to spawn the next group's `/context-reset` handoff, until the design's `## Handoff plan` is exhausted. No exceptions for 'one more quick subtask in this turn' or 'the first group is small enough to do inline'."* See `.claude/skills/context-reset/SKILL.md` for the handoff protocol.
+
+**Failure modes this prevents.** Two pull-request-level incidents in the harness this one was ported from motivated the every-group redesign that replaced the prior runtime-gate regime:
+
+- **A long task** — a long-lived orchestrator session hit auto-compaction mid-task. The compaction summary did not reproduce the strict step sequence faithfully and Step 10 (self-review) was silently omitted.
+- **A mid-implementation compaction** — a sonnet-model orchestrator session hit auto-compaction mid-Step-8. The post-compaction session showed *"context rot"*: skipped Step 9 verify gates, missed the Step 10 self-review spawn, and missed the runtime handoff trigger that should have fired after the 3rd subtask. The runtime trigger was load-bearing precisely when the compacted context could no longer reproduce it — the prior runtime-gate regime relied on the same context that compaction had just degraded.
+
+The every-group fan-out removes the failure mode structurally: the orchestrator's own context never grows long enough to trip compaction (Step 8 subtask work runs in short-lived subagent invocations), and the `## Handoff plan` is the per-group spec the orchestrator reads at each return.
+
+**Trigger source: design's `## Handoff plan` section.** As of the every-group redesign, the `design-writer` Subagent produces a `## Handoff plan` section in the design document for **every** decomposition with M ≥ 1 (per `.claude/agents/design-writer.md` § Rules → handoff-grouping). That section names the exact group boundaries and the per-group spawn order — pre-computed at design time. Single-subtask designs (M = 1) carry a `## Handoff plan` with one group, fanned out via one `/context-reset` invocation; M = 9 → 3 groups, fanned out via 3 `/context-reset` invocations. Every M ≥ 1 design now carries explicit per-group fan-out.
+
+**Per-group implementor selection — the file is the only lever.** The *orchestrator* model is per-invocation; pinning it was considered and rejected (Key Decision Q3 of the every-group redesign). Per-group *implementor* selection is a different decision — do not conflate the two. A **code** group (marked `sonnet` in the `## Handoff plan`) spawns `subagent_type="code-writer"`, whose `model: sonnet` + `effort: medium` are frontmatter-pinned; pass NO inline `model=`/effort override, because there is no per-invocation `effort` parameter, so an inline `general-purpose` code spawn could never enforce a "medium (pinned)" tier. An **instructions/harness** group (marked `inherit`) spawns `subagent_type="general-purpose"` with NO inline `model=` (it inherits the orchestrator's model) and effort inherited — both in a 1M-token window. No spawn takes an inline `model=` override; the orchestrator itself is per-invocation and the `design-writer` / `design-review` / `self-review` quality gates inherit it (`model: inherit`).
+
+**Why the clean-tree check is two commands.** `git diff --quiet && git diff --cached --quiet` (or an empty `git status --porcelain`) — never bare `git diff --quiet`, which compares the working tree to the **index** and so reports a staged-only change as clean. That is exactly the pre-spawn state AGENTS.md § *Workflow* phase (2) forbids: a staged file lands in the delegate's commit.
+
+## Step 8 — local FAIL investigation before push (AGENTS.md workflow corollary)
+
+When `cargo test --workspace` reports a failure, identify the specific failing test (`grep -E '^(failures:|test .* FAILED)'` on the output) and reproduce it in isolation (`cargo test --workspace <test name> -- --nocapture`) before deciding the failure was transient. A subsequent green run is NOT proof of transience — different test-thread assignments or environment vars (DISPLAY, WAYLAND_DISPLAY) can flip the result. Only accept "transient" when the test is known flaky AND multiple reruns are consistently green.
+
+## Step 9 — panic-index sync (detail)
+
+Scan new/modified production sources for documented or direct panic sites and update `ai-docs/panic-index.md` if any are introduced:
+
+- `rg -n '(^|[^[:alnum:]_.])(panic\(|log\.(Fatal|Panic)[a-z]*\()' --type go <changed-files>` — direct panic sites; walk the hits and skip `_test.rs` files
+- `rg -n 'func Must[A-Z]' --type go <changed-files>` — `Must…` helpers, which are panics by contract
+
+For each new production hit, add a row to `ai-docs/panic-index.md` (location, trigger, invariant, why not an error return). Stage `panic-index.md` with the implementation commit. Skip when this task added no new production panics. `master` exiting non-zero at startup is not a panic and needs no row.
+
+## Step 9 — domain-invariant sweep
+
+Run this sweep whenever the diff touches a cache key, a retrieval, a model request, the glossary or gender pass, an eval, or a migration. Full rules: [`ai-docs/domain-invariants.md`](../../../ai-docs/domain-invariants.md).
+
+```bash
+# 1. A cache key's inputs, wherever they are assembled
+rg -n 'cache_key|context_version' --type rust --type sql <changed-files>
+# 2. Retrieval filtered by a distance threshold instead of taking the top k
+rg -n '(distance|similarity|score)\s*[<>]=?\s*[0-9.]' --type rust --type sql <changed-files>
+# 3. Tuning values compiled in instead of read from configuration
+rg -n '(?i)(budget|batch|top_k|temperature|max_tokens|timeout|retries)\s*[:=]\s*[0-9]' --type rust <changed-files>
+# 4. Non-determinism on a pure path (segmentation, alignment, prompt rendering, cache keys)
+rg -n 'SystemTime::now|Instant::now|rand::|HashMap' --type rust <those files>
+# 5. Credentials in a tracked file
+rg -n '(postgres(ql)?|redis|amqp)://[^:@/[:space:]]+:[^@/[:space:]]+@' <changed-files>
+# 6. A model request missing the parameters that decide output quality
+rg -n 'chat/completions|enable_thinking|repeat_penalty|pooling' --type rust <changed-files>
+```
+
+For each hit, decide and record: a legitimate case gets one line in the progress file's decisions log saying **why**; anything else is fixed before Step 10. A new stage that calls the model must additionally have (a) the request parameters that decide output quality set explicitly, (b) its response held to the validation classes, (c) a test that drives each refusal — in the same pull request, never as a follow-up.
+
+## Step 11 — review-fix narrative (detail)
+
+For each `⬜ Open` finding in the latest `## Self-Review (Round N)` section of the progress file:
+
+- **Fix it** → mark `✅ Fixed` in the progress file; the change is authored by the actor its change-type names — `code-writer` Mode B for a predominantly-`.rs` fix, in-thread for prose (`SKILL.md` § Step 11, *Who authors a fix*).
+- **Requires a design change** → trigger the **Design Amendment** recipe above (user approval required); on return mark `✅ Fixed (design amended)`.
+- **Object to it** (finding is wrong or intentionally out of scope):
+  - `nit` / `minor`: Subagent may object autonomously — write reason, mark `⚠️ Objected: <reason>`.
+  - `major` / `blocker`: **surface to user first** before objecting. User must approve the objection.
+
+After all findings are resolved (`✅ Fixed` or `⚠️ Objected`), run the **full** gate set — `cargo build --workspace --all-targets`, `cargo test --workspace`, `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `make doc-check` — **after EVERY fix, including ones an agent (or you) calls trivial: "one character", "just a typo", "doc-comment only"**. A fix's *size* is not evidence of its *risk*; "the fix is one character" is a claim about the edit, never about the gates. A doc-comment edit can fail `revive` while build, vet and tests stay green — `go vet` does not subsume `cargo clippy --workspace --all-targets`, and vice versa. Then update `.progress.md`, re-read the PR body (`gh pr view <N> --json title,body`) and edit only if it contradicts new commits, and resolve every fixed review thread per the GraphQL recipe in AGENTS.md § *Workflow* (PR review comment resolution) — reply via REST, query unresolved thread IDs via `reviewThreads`, then `resolveReviewThread` each fixed thread and verify `isResolved: true`. Threads behind `⚠️ Objected` findings stay open. Skipping this resolution earned the same correction twice in the harness this one was ported from.
+
+**Batch ordering — full rationale.** A Step-11 fix batch routinely contains both a correction to a *number about* file F and an edit *to* F; batch order does not naturally put them in the valid order. Before writing any figure into a durable surface, answer: **"does anything else in this batch touch the file I am measuring?"** If yes, that edit lands first and the measurement is re-derived after it. A figure that was correct when you measured it is not thereby correct when you commit it — this is the Step-11 instance of AGENTS.md § *Communication* ("never record-then-edit") and of Step 9.5's measurement rule, and it is where that rule has recurred.
+
+
+## Step 12 — inbox propagation (detail)
+
+The Step 12 sub-step 5 parser specification lives in a dedicated reference file: **[inbox-propagation.md](inbox-propagation.md)**. It covers the six shape rules (NONE / TABLE / PIPEBULLET3 / PIPEBULLET2 / BOLDBULLET / PLAINBULLET), the unrecognised-shape warning behaviour, the per-row mapping format (one JSON line per item appended to `_inbox.jsonl` — canonical row shape: [`ai-docs/templates/inbox-row.md`](../../../ai-docs/templates/inbox-row.md)), and the file-level dedupe rule against the thematic `.jsonl` files. Load it on demand when implementing or modifying Step 12's propagation logic.
+
+**Per-step recap** of the Step 12 inbox-propagation sub-step:
+
+- Run the parser against `ai-docs/plans/done/YYYY-MM-DD-name.spec.md` (and the matching `*.design.md` if it exists).
+- Build the live dedupe set `H`: every `.source_path` value in the thematic `.jsonl` files in `ai-docs/deferred/` — every `*.jsonl` sibling of `_inbox.jsonl` (created by `/triage` as it drains the inbox into topic files; none may exist yet in a fresh repo, in which case `H` is empty), harvested via `jq -r '.source_path' <file>.jsonl | sort -u`.
+- For each candidate row, dedupe at *file* granularity: if the candidate's `source_path` is in `H`, skip the entire file (all of its sections); otherwise append the JSON line to `ai-docs/deferred/_inbox.jsonl` below the existing body.
+- Emit one `WARN: <spec-path> :: <section heading> — unrecognised body shape, no rows emitted` line to stdout for any section whose body matches none of the six shape rules; the row count for that section is zero and Step 12 continues normally.
+- The Step 12 commit stages `_inbox.jsonl` alongside the existing artefacts.
+
+## Step 12 — PR-body template (detail)
+
+The `gh pr create` body (SKILL.md Step 12 item 10) carries these sections, in this order:
+
+- **Summary** — what landed and why.
+- **Tracking** — `Closes #N` when the PR fully resolves the tracking issue, `Refs #N` when it resolves it partially; omit the section when the spec carries `Tracked in: none`.
+- **Test plan** (checklist: one line per AC, plus the gate results by name) — including the two results of `ai-docs/task-run-schema.md` § *Step-12 verification block* (sub-step 5a).
+
+## Step 12 — step-skip gate (recurrence history)
+
+Step 10 (self-review) has been silently skipped on "simple" tasks and post-compaction. The gate fires regardless of how trivial the diff appears — no "too simple" exemption.
+
+## FORBIDDEN
+
+- Declaring done with uncovered ACs.
+- Skipping design review.
+- Writing code before the spec is confirmed.
+- `rm`ing `.progress.md` or the interview `.state.md` — they are the run's only record, and nothing deletes them any more.
+- Reaching Step 12 with `.progress.md` untracked (Step 8 commits it with `git add -f`, so a delegate's truncating edit stays recoverable).
+- Opening the PR without Step 12 sub-step 9a (a state file in the PR diff).
+- Pushing from the master branch.
+- Silently deviating from the design without triggering Design Amendment.
+
+## Gate checklist
+
+| Before | Check |
+|---|---|
+| Steps 1–5 | Spec saved at `ai-docs/plans/YYYY-MM-DD-name.spec.md`? `**Tracked in:** #N` present (or `none` with reason)? Cross-link comment posted on the tracking issue (unless tracking skipped)? ACs confirmed by user and verifiable? See `/interview` gate checklist for the full per-step list. |
+| Step 6 | Spec exists? ACs confirmed? Not a "spec-only / defer" run? |
+| Step 8 | Design doc with GO? Test Design section present? **Every note / minor / recommendation from the GO verdict written back into the design doc, or recorded as left by the owner — each with its `## GO notes` row?** |
+| Step 8 start | Feature branch already exists from `/interview` Step 2 — `git branch --show-current` must not be `master` (re-create it only when the interview was skipped). `base_commit` + `branch` recorded in progress file? Progress file committed with `git add -f`? |
+| Each subtask | `cargo build --workspace` ✅? Tests run? `.progress.md` updated? |
+| Step 9 | `cargo build --workspace --all-targets` ✅? `cargo test --workspace` green? `make doc-check` clean when a doc comment changed? `cargo fmt --all --check` clean? `cargo clippy --workspace --all-targets -- -D warnings` clean? `make lock-check` clean (only if deps moved)? `make file-limits` clean (no other gate here covers it — the linter stays green on an over-limit file)? `make comment-refs` clean? `make panic-calls` clean? `make import-guard` clean? `actionlint` clean on every changed workflow and `shellcheck` clean on every changed script (skip if none)? Any new panicking call in shipped code → marked and `ai-docs/panic-index.md` updated and staged? Domain-invariant sweep run, every hit resolved or justified in the decisions log? All ACs covered? |
+| Step 9.5 | context-status.md entry appended + context.md summary/README.md updated? (spec/design NOT moved yet — happens at Step 12) |
+| Step 10 | Self-review APPROVE? (Progress file is tracked until Step 12 sub-step 9a retires it, and stays on disk after. Do NOT `rm` it here.) |
+| Step 11 | `major`/`blocker` objections confirmed by user? Design change → Design Amendment triggered? `gh pr view <N>` re-read after every push (unconditional) — `gh pr edit` only if body contradicts new commits? |
+| Design Amendment | User approved the amendment? Design review returned GO before resuming? |
+| Step 12 | Branch ≠ master? INDEX.md ✅? spec/design `git mv`d to done/? `_inbox.jsonl` parsed and appended (or warning logged for unrecognised shape) and staged? `Cargo.lock` refreshed? **Sub-step 9a run before `gh pr create` — both state files readable under `ai-docs/plans/ignored/`, `git status --porcelain` empty, both probes returning nothing?** PR body references the tracking issue (`Closes #N` or `Refs #N`)? PR created and URL posted? |
+
+## In-flight marker — full contract (Stop hook)
+
+`ai-docs/plans/.task-inflight` (gitignored, untracked) exists exactly while a `/task` run is between Step 8 entry and Step 12 completion. The `Stop` hook in `.claude/settings.json` blocks ending a turn while the marker exists, unless the marker's tail carries a hand-back token.
+
+- **Create** at Step 8 entry: `date -u +%FT%TZ > ai-docs/plans/.task-inflight`. **Remove** at Step 12 item 13 (`rm -f`), or when the user aborts the task.
+- **Hand-back token** — append in the SAME turn that legitimately ends with control at the user (an `AskUserQuestion` posted, a blocker surfaced for direction, an explicit user stop) or out of the orchestrator's hands to a background delegate:
+  `echo "handback: $(date -u +%FT%TZ) <reason, ≤ 10 words>" >> ai-docs/plans/.task-inflight`
+  **One token buys exactly one stop.** The hook spends it as it permits that stop, rewriting the line to `handback-spent:`. Appending is the only write the orchestrator ever makes to this file: **do not delete the token to resume, and never bundle a marker edit into a command that also runs a gate.**
+- **Why the hook spends its own token.** Clearing it used to be the next turn's job, and that is a disposition. It failed in one run, and not by forgetting: the clearing `sed` travelled inside one compound Bash command whose other half was a `go build … | head`, the `PreToolUse` piped-gate guard refused the whole command, the agent re-sent only the build half, and the token survived. Seven minutes later the turn announced "moving to Step 12", ended without doing it, and the gate exited 0 on that stale token. The session idled for two hours until the owner asked why. One hook had silently eaten the action another hook required — which no amount of care in either hook's own text would have caught. `test-stop-gate.sh` replays that sequence as a fixture.
+- **Hook mechanics:** fail-open when the marker is absent; respects `stop_hook_active` (never re-blocks its own continuation); on block, appends `blocked: <ISO-8601 UTC>` to the marker and restates this contract on stderr, so a session that has never read this page still gets the recipe at the moment it needs it. **Named fail direction, token-spending:** if the token cannot be spent (the marker's directory is not writable — `sed -i` unlinks and recreates, so the file's own mode is not what decides), the hook lets the stop through and says so loudly on stderr. It cannot promise to catch the next stop, and refusing a legitimate hand-back over a directory permission is the more expensive error.
+- **Owner.** Creating the marker makes the creating session its owner: a `PostToolUse` hook on `Bash` appends `owner: <session id>`, taken from its own input, when the main agent's command creates the marker (`> ai-docs/plans/.task-inflight`) or appends a `claim:` line to it. RESUME claims it — `echo "claim: $(date -u +%FT%TZ)" >> ai-docs/plans/.task-inflight` — because a session begun by `/clear` or `--resume` has a new id (a `/clear` opens a new transcript). The Stop hook compares the last `owner:` line with the stopping session's id: a different session is released without a block, without a ledger line and without spending a token. **Named fail direction:** a subagent's command never stamps (it shares the session id but is not the flow); a marker with no `owner:` line, or a stop whose input carries no session id, gates as before — every failure of the ownership half degrades to the old gate, never to no gate.
+- **The ledger.** `blocked:` and `handback-spent:` lines accumulate for the life of the run. Step 12 item 13 reads their counts before `rm -f`, and the run's closing report may state nothing about its own conduct that those counts do not support.
+- **What it enforces:** naming the next step is not performing it. Inside an active `/task` a turn has exactly two legal shapes — advance the flow with tool calls, or hand back explicitly. The announce-and-idle third shape was written into `learnings.md` three times in one session and violated three times; a rule that failed as text ships here as a gate.
+
+
+## Subagent-owned writes — temptation table (SKILL.md § Design Amendment AXIOM)
+
+| If the orchestrator is tempted to... | Do this instead |
+|---|---|
+| `Edit` a `*.design.md` to apply a self-review finding | Spawn `design-writer` Subagent with the finding text |
+| `Write` a `*.design.md` because the Subagent's text output didn't land on disk | Re-spawn the `design-writer` Subagent; do NOT transcribe its text |
+| `Edit` a `*.spec.md` to apply a user tweak after `interview` returned `ready` | Spawn `spec-writer` with the tweak as a synthetic round |
+| `Edit` a `done/*.spec.md` during `/pr-commented` Spec Amendment | Same — route through `spec-writer` |
+
+
+## Amendment-route rule — rationale (SKILL.md § Design Amendment AXIOM)
+
+The obligation to route a spec/design change through its amendment recipe used to live at named POINTS: Step 11's fix-diff detection table, and the reviewer's literal "Amendment trigger" wording. Observed gaps, one per phase the points missed:
+
+1. Session `ec78f817`: a reviewer-emitted spec-amendment trigger was closed in-thread — fixed by the two-exits rule at Step 11.
+2. First post-forge run, DESIGN phase: the design-writer agent raised genuine scope questions (propagation breadth; a `settings.json` permission) surfaced to the user BARE — correct questions, no route attached, so the user's "yes" had no defined next step.
+
+The generalisation keys on the QUESTION'S SUBJECT, not the phase or the originator: if a "yes" changes Scope / an AC / a KD / a standing constraint, the question names its route; the answer authorises the change, and the route runs regardless. Detection is deliberately coarse — ask "what is this question ABOUT?", never "who asked" or "which step".
+
+## Reviewer reuse — contract (SKILL.md Step 10)
+
+A WARM reviewer (resumed agent) carries its prior rounds in context. That memory is an asset for exactly one job: re-verifying the fixes of its OWN earlier findings against the fix diff. For anything else it is anchoring — a warm round judging a new group's diff or an amended artefact re-derives nothing and sees what it expects. Rule: warm resume is legal only when the round's whole scope is fix-verification of that reviewer's own register rows; a round containing ANY new material spawns cold. The register (not the reviewer's memory) is the loop's durable cross-round state, so a cold spawn loses nothing the harness relies on.
+
+**A warm follow-up is still a gate prompt.** The closed list binds the CONTENT, not the carrier: a round delivered to a resumed reviewer by `SendMessage` carries the same permitted items and nothing else — no fix summary, no characterisation of the work, no self-reported gate results, no round history. The `PreToolUse` matcher is `Task|Agent`, so it does not reach that path; there the rule is the whole enforcement, and the reviewer-side `PROMPT-CONTAMINATION` finding is the only backstop.
+
+## In-flight marker — handback vocabulary addendum
+
+`awaiting delegate return` is a LEGAL handback reason: a turn that spawned a background delegate and ends while it runs has genuinely handed the wheel — not to the user, but out of the orchestrator's hands; the task-notification resumes it. Measured in the first post-forge run: the hook fired once, on exactly this shape, and the token resolved it at the cost of one line. That is the intended failure direction (loud + cheap), not a defect.
