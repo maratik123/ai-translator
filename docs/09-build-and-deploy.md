@@ -5,7 +5,7 @@
 - [ ] `just`/Makefile: `gen-types` (cargo test в shared), `dev` (backend с `ServeDir` + `vite dev` с proxy на `/ws` и `/api`), `build` (vite build → rust-embed → cargo build --release).
 - [ ] CI (GitHub Actions): clippy, тесты, проверка что `gen-types` не дает диффа, сборка фронта.
 - [ ] `deploy/reader.service` (systemd user): `ExecStart=%h/.local/bin/reader --config %h/.config/reader/config.toml`, `After=llama-server.service`.
-- [ ] `deploy/llama-server.service` и `deploy/llama-embed.service` с командными строками из `05-llm-client.md`, `Restart=on-failure`. Устройство прибивать явно (`-dev Vulkan0`): видимых Vulkan-устройств два, второе — софтверный lavapipe.
+- [ ] `deploy/llama-server.service` и `deploy/llama-embed.service` с командными строками из `05-llm-client.md`, `Restart=on-failure`. Устройство прибивать явно (`-dev ROCm0`): при сборке с двумя бэкендами одна и та же карта видна дважды, и без `-dev` llama.cpp выделит память под неё дважды.
 - [ ] Postgres: роль `reader`, БД `reader`, `CREATE EXTENSION vector` от суперпользователя (или разрешить роли). Миграции через `reader-migrate` (отдельный бинарь, `ExecStartPre` в юните сервера), сервер и CLI только проверяют версию схемы.
 - [ ] Тесты требуют Podman socket (`systemctl --user enable --now podman.socket`); `just test` выставляет `DOCKER_HOST`.
 - [ ] Логи через `journalctl --user -u reader`.
