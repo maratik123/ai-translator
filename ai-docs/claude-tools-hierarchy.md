@@ -144,4 +144,4 @@ Every regression suite must pass `shellcheck -s bash` and run green before `git 
 
 ## Dependabot — `.github/dependabot.yml`
 
-Weekly, two ecosystems: `cargo` (commit prefix `build`) and `github-actions` (prefix `ci`), five open pull requests each. `/dependabot-pr` triages the `cargo` ones; a `github-actions` pull request bails at preconditions as out of scope for the first version.
+Weekly. One ecosystem today — `github-actions` (commit prefix `ci`), five open pull requests. The `cargo` ecosystem is left out while the workspace does not exist: Dependabot resolves a manifest at the directory it is given, and with none it ends every scheduled run as a failed updater run, which is a red run on the default branch and a false positive for the flow that watches for one. It returns with the commit that creates the workspace, carrying the `build` prefix, and the propagation table binds the two. `/dependabot-pr` triages the `cargo` ones; a `github-actions` pull request bails at preconditions as out of scope for the first version.

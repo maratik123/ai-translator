@@ -10,7 +10,7 @@
    - Searching for regex patterns (ast-index uses literal match)
    - Searching for string literals inside code (`"some text"`)
    - Searching in comments content
-   - Searching non-Go files (SQL migrations, YAML workflows, Markdown)
+   - Searching a surface the index does not cover. **It covers `.rs`, `.sql`, `.sh` and the frontend's TypeScript**; it does not cover Markdown, YAML or TOML — so the harness corpus, the workflows and the manifests are grep's, and migrations, scripts and the reader are not.
 
 ## Negative results are NOT evidence
 
@@ -21,10 +21,11 @@ exist" from a miss — re-run with a different method, or read the region.
 | Cause of the false negative | Fix |
 |---|---|
 | Multi-line construct (a `rustfmt`-split signature, a struct literal with tags, a chained builder call) | `rg -U` (multiline), or read the region |
-| Hand-rolled identifier class — `[a-z_]*` excludes digits and capitals, and Go identifiers are `camelCase`/`PascalCase` with digits (`chatID`, `phase2Node`, `qR`) | `[A-Za-z0-9_]+`, or `ast-index symbol` / `ast-index outline`, which need no hand-written pattern |
-| The symbol lives behind a build tag, in generated code, or in a file your pattern's path filter excluded | Read the file list first (`ast-index file`), then the source |
+| Hand-rolled identifier class — `[a-z_]*` excludes digits and capitals, and Rust spans three conventions at once: `snake_case` for functions and locals, `CamelCase` for types and traits, `SCREAMING_SNAKE_CASE` for constants (`cache_key`, `ContextVersion`, `MAX_CONTEXT_TOKENS`) | `[A-Za-z0-9_]+`, or `ast-index symbol` / `ast-index outline`, which need no hand-written pattern |
+| The symbol lives behind a `#[cfg(...)]`, in generated code, or in a file your pattern's path filter excluded | Read the file list first (`ast-index file`), then the source |
+| A macro-generated item — a `derive`, a declarative macro's expansion — exists in no source file at all | Read the macro's definition, or expand the crate; a clean sweep here is about the tree, not about the program |
 | Case-sensitive pattern over **prose** — instruction text, comments and headings capitalise mid-sentence words freely, so the emphatic occurrence is the one that escapes | `grep -rni` / `rg -i`; a clean sweep is evidence about your *pattern* until you have varied its case |
-| An interface method searched as a declaration — Go interfaces are satisfied implicitly, so there is no `implements` keyword to find | `ast-index implementations "<Interface>"`, or search for the method name across types |
+| A trait method searched as a declaration — the method's body lives in an `impl` block, and a blanket `impl<T: Bound> Trait for T` names no concrete type at all, so no search for the type finds it | `ast-index implementations "<Trait>"`, or search for the trait name and read its `impl` blocks |
 
 **MUST — a claim that an API, symbol, flag, or precedent does NOT exist requires a
 raw read of the source (or `cargo doc`), never a search tool's silence.**
@@ -87,25 +88,43 @@ ast-index is 17–69× faster than grep (1–10 ms vs 200 ms–3 s) and returns 
 | Task | Command | Time |
 |------|---------|------|
 | Universal search | `ast-index search "query"` | ~10 ms |
-| Find type/interface | `ast-index class "SessionStore"` | ~1 ms |
+| Find struct / enum / trait | `ast-index class "Paragraph"` | ~1 ms |
 | Find symbol | `ast-index symbol "SymbolName"` | ~1 ms |
 | Find usages | `ast-index usages "SymbolName"` | ~8 ms |
-| Find implementations | `ast-index implementations "Poster"` | ~5 ms |
+| Find implementations | `ast-index implementations "Translator"` | ~5 ms |
 | Call hierarchy | `ast-index call-tree "function" --depth 3` | ~1 s |
-| Find callers | `ast-index callers "functionName"` | ~1 s |
-| Package deps | `ast-index deps "package-name"` | ~10 ms |
-| File outline | `ast-index outline "store.rs"` | ~1 ms |
+| Find callers | `ast-index callers "process_paragraph"` | ~1 s |
+| Module deps | `ast-index deps "module-name"` | ~10 ms |
+| File outline | `ast-index outline "lib.rs"` | ~1 ms |
+| Imports of a file | `ast-index imports "main.rs"` | ~1 ms |
 
-## Go-Specific Commands
+## Rust-Specific Commands
+
+The indexer reads Rust structurally: a `struct` is a class, an `enum` an enum, a `trait` an interface, an `impl Trait for Type` a class carrying the trait as its parent, a `macro_rules!` a function, a `mod` a package, a `use` an import — and **attributes and each derive are indexed as annotations**, which is what makes the last two rows work.
 
 | Task | Command |
 |------|---------|
-| Find a struct | `ast-index class "Session"` |
-| Find an interface | `ast-index class "Notifier"` |
-| Find implementors of an interface | `ast-index implementations "Notifier"` |
-| Find methods on a type | `ast-index symbol "(*Session)"` or `ast-index outline "<file>.rs"` |
-| Find tests | `ast-index search "func Test"` |
-| Find struct tags (db/json) | `rg -U 'db:"' --type go` — literal-with-quotes is a grep job |
+| Find a struct or an enum | `ast-index class "Paragraph"` |
+| Find a trait | `ast-index class "Translator"` |
+| Find implementors of a trait | `ast-index implementations "Translator"` |
+| Find the methods on a type | `ast-index outline "<file>.rs"` |
+| Find impl blocks | `ast-index search "impl"` |
+| Find macros | `ast-index search "macro_rules"` |
+| Find derives | `ast-index search "#[derive"` |
+| Find tests | `ast-index search "#[test]"` |
+
+**What the index cannot show, however the query is spelled:** what a derive or a macro *generates*. The attribute is indexed; the `impl` it expands to exists in no source file, so a clean sweep for that `impl` is a fact about the tree, not about the program. `cargo expand` is what shows it.
+
+## SQL-Specific Commands
+
+Migrations are indexed too — a `CREATE TABLE` is a class, a `CREATE FUNCTION` or `PROCEDURE` a function, a `CREATE INDEX` a property, a `CREATE TYPE` and a `CREATE DOMAIN` a class. A commented-out statement is not indexed, so a hit is a live definition.
+
+| Task | Command |
+|------|---------|
+| Find a table | `ast-index class "translations"` |
+| Find an index | `ast-index symbol "idx_translations_paragraph"` |
+| Find a function or a procedure | `ast-index symbol "<name>"` |
+| Find where a table is touched | `ast-index usages "translations"` — and read the callers, because a query built as a string reaches no index |
 
 ## Index Management
 

@@ -150,7 +150,7 @@ it does anything else. A script with no invocation grammar gains no flag.
 
 ## DOC-6 — Examples
 
-An `Example…` function in `_test.rs` is the preferred documentation for anything with a non-obvious call sequence — it compiles, it runs in CI, and it cannot rot silently.
+A doc test — a fenced example inside the item's own doc comment — is the preferred documentation for anything with a non-obvious call sequence: it compiles, `cargo test` runs it, and it cannot rot silently.
 
 
 ## Durable references — a place named to be read later names a SYMBOL

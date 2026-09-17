@@ -173,7 +173,7 @@ gh run view <run-id> --log-failed --job <job-id> 2>&1 | tail -200
 | `import-guard` | `make import-guard`. Move the offending dependency into `dev-dependencies` or out of the graph; never delete the rule — the gate reads the **non-test** graph, so a test-only helper stays legal |
 | `test` | `cargo test --workspace <test name>`, then the full suite |
 | `race` | `cargo test --workspace -run <TestName>` |
-| `lint` | `cargo clippy --workspace --all-targets`; if that is clean the failure is the file-size gate — `awk` over `*.rs`, hard 1000 / 1500 for `_test.rs` |
+| `lint` | `cargo clippy --workspace --all-targets -- -D warnings`; if that is clean the failure is the file-size gate — `awk` over `*.rs`, hard 1200 under a crate's `src/` and 1500 under `tests/` — or the panic gate, `make panic-calls` |
 | `harness` | the failing guard itself (`shellcheck`, `check-citations.sh`, a guard suite, `check-script-shape.sh`) |
 | `comment-refs` | `make comment-refs`, or `bash ai-docs/scripts/check-comment-refs.sh <file>...` for the reported files |
 | `actionlint` | `actionlint .github/workflows/<file>.yml` |
