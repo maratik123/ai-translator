@@ -72,6 +72,11 @@ jobs:
               # branch rules require, so a commit that renames a job and
               # touches nothing else must still reach this job.
               - '.github/workflows/**'
+              # The markdown link check in this job sweeps every tracked
+              # document, and the committed miniature models carry one of their
+              # own. Without this entry a commit that edits only that document
+              # reaches no job, and a link broken there is never reported.
+              - 'testdata/**'
             workflows:
               - '.github/workflows/**'
             # Every path class the comment-reference gate reaches — kept as its
