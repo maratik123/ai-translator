@@ -19,11 +19,11 @@
 # in most awks, and a ratchet should not depend on which awk is installed.
 # Float arithmetic throughout; the tolerance absorbs the epsilon.
 #
-# THE TOLERANCE IS ZERO, and that is a starting value, not a measurement. In
-# this project nothing has been measured yet: a tolerance is the width of the
-# suite's own run-to-run drift, and a suite that does not exist has none. The
-# first drift this project actually observes is what sets it — derived from a
-# series, never from a single blocked commit:
+# THE TOLERANCE IS ZERO, and that is a starting value, not a measurement. A
+# tolerance is the width of the suite's own run-to-run drift, and no drift
+# series has been run here yet: the crates the workspace holds are skeletons
+# and carry no test. The first drift this project actually observes is what
+# sets it — derived from a series, never from a single blocked commit:
 #
 #   for i in 1 2 3; do
 #     cargo llvm-cov --workspace --summary-only --json > "tmp/cov$i.json"
@@ -136,10 +136,10 @@ $(jq -r '.data[0].totals.lines | "\(.percent) \(.count)"' "$PROFILE" 2>/dev/null
 EOF
 
 if [ "$current" = NaN ]; then
-  # A workspace with no executable lines yet is the state this repository starts
-  # in, so it is a named skip and not a block. Once a crate carries code, a zero
-  # here means the measurement broke, and the suite's own failure would have
-  # blocked above.
+  # A workspace with no executable lines is a named skip and not a block. Once a
+  # crate carries code, a zero here means the measurement broke, and the suite's
+  # own failure would have blocked above — so this branch cannot be reached
+  # silently.
   printf 'coverage-ratchet: the summary carries no lines (%s); nothing measured, ratchet skipped\n' "$PROFILE" >&2
   exit 0
 fi

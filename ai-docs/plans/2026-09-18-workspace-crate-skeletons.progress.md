@@ -1,26 +1,26 @@
 # Progress: Workspace and crate skeletons — ACTIVE
-_Updated: 2026-09-18 18:12_
+_Updated: 2026-09-18 19:40_
 
 > Read THIS FIRST → ready to continue. No need to re-read the codebase.
 
 **Branch:** feat/2026-09-18-workspace-crate-skeletons
 **base_commit:** 5fd1a041c804f2d658cd7832b4656438cfa4b617
-**Last build:** green — `cargo build --workspace --all-targets` at d8cacd8
+**Last build:** green — `make verify` (the whole aggregate) after subtask 2's edits
 **Issue:** #10
 **Spec:** ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md
-**current_step:** Step 8 — Group A complete (subtask 1 of 4 done); handoff into Group B pending
-**last_passed_gate:** `make cover-ratchet` (check-only) at d8cacd8 — "0.00% holds against 0.00% (tolerance 0.00 pp)"
+**current_step:** Step 8 — subtask 2 of 4 complete (Group B in progress)
+**last_passed_gate:** `make verify` — every gate ran and none printed a skip line; plus `make cover-ratchet`, `shellcheck`, the pre-commit dispatch suite and the script-shape checker
 **entry_args:** 10
 
 ## Next action
 
-**Do this immediately:** spawn `/context-reset` handoff into Group B (subtasks 2-4) per the design's `## Handoff plan`.
+**Do this immediately:** continue Group B with subtask 3 (Dependabot's cargo ecosystem).
 
 ## Subtasks
 
 - [x] 1. The workspace manifest and its skeleton members (Group A, code, code-writer/sonnet) — commit d8cacd8
-- [ ] 2. Retire the empty-workspace guard and every live statement of it  ← CURRENT (Group B)
-- [ ] 3. The cargo ecosystem returns to Dependabot (Group B)
+- [x] 2. Retire the empty-workspace guard and every live statement of it (Group B)
+- [ ] 3. The cargo ecosystem returns to Dependabot (Group B)  ← CURRENT
 - [ ] 4. Record the crate-naming rule (D1) as a project key decision (Group B)
 
 ## Decisions log
@@ -34,6 +34,10 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 8 (subtask 1, code-writer)**: `cargo metadata --format-version 1 --no-deps` was read back after the build and the two binary targets are named `reader-cli` and `reader-migrate`, matching the spec-fixed executable names (AC2), with no `[[bin]]` block in either manifest (D3).
 - **Step 8 (subtask 1, code-writer)**: the pre-commit hook found no `ai-docs/coverage-ratchet.txt` and initialised it at `0.00` in the same commit (d8cacd8); the subsequent `make cover-ratchet` check-only run reported a comparison ("0.00% holds against 0.00%"), not a missing-file block and not a no-executable-lines skip, confirming the two binary `main` bodies put lines into the summary per D8.
 - **Step 8**: Group A returned and the branch was pushed to `origin` as the binding visibility point; the orchestrator re-validated branch, base_commit and tracked-tree cleanliness, and re-ran `cargo build --workspace --all-targets` itself before handing off Group B.
+- **Step 8 (subtask 2)**: the AC3 red control was run before the Makefile was edited — `git show HEAD:Makefile` into a manifest-less scratch directory, then `make -C` that directory — and its capture carried "no Cargo.toml at the repository root; build skipped"; the post-edit `make verify` capture carried no such line, and each recipe's command was echoed in it, so the aggregate's silence is evidence about the tree and not about the instrument.
+- **Step 8 (subtask 2)**: with the guard variable gone, the six cargo recipes were also stripped of their `@` prefix rather than left as `@cargo …` — "the bare gate command" of the design's subtask 2, and the form every non-cargo recipe in the file already used; the echoed command lines are what the `make verify` capture was read for.
+- **Step 8 (subtask 2)**: the widened prose sweep (the union of the four vocabularies § Risks names) was run against a constructed control file first — all twenty patterns matched there — then over the tree before and after the edits; the residue was read line by line and every remaining hit is either a conditional branch/state-table row the design's stay rule keeps, `.claude/**` rule text, or subtask 3's own two sites. A Russian-vocabulary pass and a cardinality control confirming the sweep corpus reaches `docs/` and `README.md` were run as well, and the Russian pass returned no era statement.
+- **Step 8 (subtask 2)**: the comment-reference gate was run by explicit path over the two gated files this subtask edits and again over the whole tracked set, both green, and its red direction was confirmed on a constructed scratch script carrying a markdown path, which the gate reported.
 
 ## GO notes
 
@@ -63,7 +67,7 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 |----|--------|
 | AC1 | NOT_TESTED |
 | AC2 | NOT_TESTED |
-| AC3 | NOT_TESTED |
+| AC3 | PASS — `make verify` ran every gate and its capture carries no skip line, while the pre-change entry point's capture in a manifest-less scratch directory does |
 | AC4 | NOT_TESTED |
 | AC5 | NOT_TESTED |
 
@@ -81,3 +85,8 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - `crates/cli/Cargo.toml`, `crates/cli/src/main.rs` (new)
 - `crates/migrate/Cargo.toml`, `crates/migrate/src/main.rs` (new)
 - `ai-docs/coverage-ratchet.txt` (new — written and staged by the pre-commit hook)
+- `Makefile` (guard block deleted, cargo recipes bared, file-size band comment rewritten)
+- `AGENTS.md` (§ Build & Test era blockquote and the ratchet tolerance paragraph)
+- `ai-docs/code-style.md` (§ File size — the band comment's twin)
+- `ai-docs/claude-tools-hierarchy.md` (§ CI only)
+- `.githooks/coverage-ratchet.sh` (tolerance header, no-executable-lines branch comment)
