@@ -47,7 +47,7 @@ Resolution: the owner chose the task text's member set in round 1, question 1 �
 | AC1 | The workspace manifest at the repository root names the crates the task lists among its members. [task: "Корневой `Cargo.toml` с воркспейсом: `crates/shared`, `crates/core`, `crates/cli`, `crates/migrate`."] |
 | AC2 | The executable built from the command-line crate is named `reader-cli`, and the one built from the migration crate is named `reader-migrate`. [task: "Имена бинарей: `reader-cli`, `reader-migrate`."] |
 | AC3 | No gate of the local aggregate run reports itself skipped for want of a manifest at the repository root. [task: "не печатает ни одной строки о пустом воркспейсе — гейты работают по-настоящему"] |
-| AC4 | No live document or script of this repository still claims that the cargo gates skip themselves because the workspace is empty; the class is every site whose claim this diff falsifies, per AGENTS.md § Propagation Rule step 4. [task: "не печатает ни одной строки о пустом воркспейсе — гейты работают по-настоящему"] |
+| AC4 | No live document or script of this repository still claims that the cargo gates skip themselves because the workspace is empty. [answer 2.3: "Переформулировать"] |
 | AC5 | The coverage ratchet holds a line-coverage value its script measured on this workspace, and that script reports neither an absent ratchet file nor a workspace without executable lines. [task: "Ратчет покрытия инициализирован измеренным значением."] |
 
 ## Open questions
