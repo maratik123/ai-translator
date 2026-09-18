@@ -107,7 +107,9 @@ manifest whose members are on edition 2024 and which states no resolver emits a 
 build
 `[measured cargo@1.98.1 · cargo build --workspace --all-targets against such a workspace → "warning: virtual workspace defaulting to `resolver = "1"` despite one or more workspace members being on edition 2024 which implies `resolver = "3"`"]`.
 Cargo's warning is not caught by the linter's `-D warnings`, so it would be permanent noise that no
-gate removes; stating the resolver is the fix, not suppressing it.
+gate removes
+`[measured cargo@1.98.1 · cargo clippy --workspace --all-targets -- -D warnings against that same workspace → exit 0 with the resolver warning printed; -D warnings promotes the compiler's lints and leaves cargo's own diagnostics alone]`;
+stating the resolver is the fix, not suppressing it.
 
 **D3 — The fields every member manifest would otherwise repeat live in `[workspace.package]`, and
 each member inherits them with `.workspace = true`.** The fields are the version, the edition, the
@@ -152,7 +154,7 @@ already a command line that the build entry point and CI both run with warnings 
 so a lint table would be a second, divergable statement of it; an MSRV field has no consumer while
 nothing outside the workspace depends on it; a toolchain file would pin what CI deliberately reads as
 `stable`
-`[measured baabbb6:.github/workflows/ci.yml:96-164 · grep -n 'rust-toolchain@stable' .github/workflows/ci.yml → every Rust job in the range uses dtolnay/rust-toolchain@stable]`.
+`[measured 20aa023:.github/workflows/ci.yml · grep -n 'dtolnay/rust-toolchain' .github/workflows/ci.yml → every occurrence in the file is dtolnay/rust-toolchain@stable, the Rust jobs' and the one in the harness-guards job below them alike; no job pins a version]`.
 Each is a policy this task was not asked for, and each remains available to the task that needs it.
 
 **D8 — The skeletons carry no test.** They carry no logic, so the standing substantial-logic
@@ -216,11 +218,35 @@ carries the measured comment-gate constraints the directory/package divergence c
 § *What the gates will read afterwards*. Recording the decision without them would hand a later crate
 author a rule whose cost is invisible until a commit-blocking gate refuses their doc comment.
 
+**D13 — Of the cargo entry's settable fields, the commit prefix is fixed by the corpus and the
+cadence and the open-pull-request limit are copied from the sibling entry.** The prefix is `build`,
+and the one live document that fixes it is the tool inventory's Dependabot section — the very section
+subtask 3 rewrites
+`[measured 20aa023:ai-docs/claude-tools-hierarchy.md:147 · sed -n '147p' ai-docs/claude-tools-hierarchy.md → the section opens by stating the file's cadence, describes the single github-actions entry's commit prefix and its open-pull-request limit, and then says of the cargo ecosystem "It returns with the commit that creates the workspace, carrying the `build` prefix, and the propagation table binds the two."]`.
+So the rewrite carries the prefix forward rather than restating it from recall, and § Test Design
+reads the written value back against the **pre-change** text of that section rather than against the
+rewrite. The propagation row fixes none of these fields — its whole obligation is *where* to
+propagate, never *what* to write
+`[measured 20aa023:ai-docs/propagation-groups.md:41 · sed -n '41p' ai-docs/propagation-groups.md → the row says the cargo ecosystem is left out while no manifest exists, then "Restore it in the same commit AND `.claude/skills/dependabot-pr/SKILL.md` § preamble AND `ai-docs/claude-tools-hierarchy.md` § Dependabot"; no cadence, no limit, no prefix]`.
+
+The cadence and the open-pull-request limit are fixed by **no** live document: the only such limit
+written anywhere in the tree belongs to the sibling `github-actions` entry
+`[measured 20aa023 · grep -rn -i 'open-pull-requests-limit' . with .git, tmp and ai-docs/plans excluded → the only site in the tree is .github/dependabot.yml:13, inside the github-actions entry, and there is no other; a constructed control line carrying the same string was matched, so the pattern ran]`.
+Both are therefore **copied from that sibling entry** — same cadence, same limit — because a
+divergence between two entries of one file would be a policy nobody decided, and because the
+section's own opening sentence already states the cadence as a property of the file rather than of an
+entry. Neither value is written as a number here: the implementor reads the sibling entry and copies
+it, and the owner may move either later. This matters more than it looks, because **nothing
+downstream would catch a wrong value** — no gate reads the file's values at all
+`[measured 20aa023 · grep -rn -i 'dependabot' Makefile ai-docs/scripts/ .githooks/ .github/workflows/ → no hit, with a constructed control line matched so the pattern ran; and sed -n '81,82p' Makefile → the workflow-linter recipe is `actionlint .github/workflows/*.yml`, a glob the configuration file's path does not match]`.
+The comment-reference gate reads its comment **lines** and nothing of its semantics, which is the
+constraint subtask 3 already carries.
+
 ### What the gates will read afterwards
 
 The CI paths filter already routes the new artefact classes: its Rust filter lists the Rust sources,
 every manifest and the lockfile
-`[measured baabbb6:.github/workflows/ci.yml:39-52 · sed -n '39,52p' .github/workflows/ci.yml → the rust filter lists '**/*.rs', '**/Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'Makefile' and '.github/workflows/**']`,
+`[measured 20aa023:.github/workflows/ci.yml:39-52 · sed -n '39,52p' .github/workflows/ci.yml → the rust filter lists '**/*.rs', '**/*.sql', '**/*.golden' (the last carrying its own comment on why a golden is a Rust path), '**/Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'Makefile' and '.github/workflows/**']`,
 so no filter edit is needed and no gate silently stops running `[derived → AC3]`.
 
 The comment-reference gate changes behaviour once crate directories exist, and it was checked before
@@ -278,8 +304,8 @@ Nothing in a skeleton panics `[derived → AC3]`.
 | # | Task | Files | Depends on |
 |---|------|-------|------------|
 | 1 | The workspace manifest and its skeleton members: virtual root manifest (members, `resolver`, `[workspace.package]`, empty `[workspace.dependencies]`), one manifest and one root source per member, each binary member packaged under the executable name the spec fixes for it, the lockfile generated by the build. The commit's own pre-commit hook measures coverage, finds no ratchet file and initialises it at the measured value, staging it into this same commit. | `Cargo.toml`, `Cargo.lock`, `crates/shared/Cargo.toml`, `crates/shared/src/lib.rs`, `crates/core/Cargo.toml`, `crates/core/src/lib.rs`, `crates/cli/Cargo.toml`, `crates/cli/src/main.rs`, `crates/migrate/Cargo.toml`, `crates/migrate/src/main.rs`, `ai-docs/coverage-ratchet.txt` (written and staged by the hook, not by hand) | — |
-| 2 | Retire the empty-workspace guard and every live statement of it: delete the manifest guard and its comment block from the build entry point and leave each recipe as the bare gate command; replace the build-and-test blockquote and the tool-inventory sentence that assert the era; correct the gate-script docstrings and the script comment that assert this repository's present state. **The file-size band comment and its twin are corrected together:** the build entry point's band comment and the code-style reference's § File size paragraph both say the bands are unmeasured *because the tree holds no crate*, and both are rewritten to the same judgement — crates exist after this task, so the trigger they name has fired, but a skeleton is not the real distribution they wait for, so the re-set stays deliberately deferred to the task that has code to measure. The bands themselves do not move. Rewriting one and leaving the other is the live-document divergence § Approach names. **What stays:** a conditional branch inside a gate script, and a state-table row that describes one, remains a true statement about what the script does, so neither is edited — only a sentence asserting this repository's present state is. The build entry point is in the comment-reference gated set, so a rewritten comment there may name the manifest's file name (measured safe) but no repository path under a crate directory, and — per § *What the gates will read afterwards* — no `core::` path either. | `Makefile` (guard block and § file-size band comment), `ai-docs/code-style.md` (§ File size), `AGENTS.md`, `ai-docs/claude-tools-hierarchy.md` (§ CI), `ai-docs/scripts/import_guard.py`, `ai-docs/scripts/comment_refs.py`, `.githooks/coverage-ratchet.sh` | 1 |
-| 3 | The cargo ecosystem returns to Dependabot: add the cargo entry at the repository root with the weekly cadence, the open-pull-request limit and the commit prefix the propagation row fixes, and drop the comment that explains its absence; propagate to the triage skill's preamble and the tool inventory's Dependabot section; retire the propagation row itself, whose trigger this pull request discharges and whose claim it falsifies. The configuration file is itself in the comment-reference gated set, so any comment left in it obeys the same reference ban as a Rust one — no markdown path, no section sign, no repository path. | `.github/dependabot.yml`, `.claude/skills/dependabot-pr/SKILL.md` (§ preamble), `ai-docs/claude-tools-hierarchy.md` (§ Dependabot), `ai-docs/propagation-groups.md` | 1 |
+| 2 | Retire the empty-workspace guard and every live statement of it: delete the manifest guard and its comment block from the build entry point and leave each recipe as the bare gate command; replace the build-and-test blockquote and the tool-inventory sentence that assert the era; correct the gate-script docstrings and the script comment that assert this repository's present state. **The file-size band comment and its twin are corrected together:** the build entry point's band comment and the code-style reference's § File size paragraph both say the bands are unmeasured *because the tree holds no crate*, and both are rewritten to the same judgement — crates exist after this task, so the trigger they name has fired, but a skeleton is not the real distribution they wait for, so the re-set stays deliberately deferred to the task that has code to measure. The bands themselves do not move. Rewriting one and leaving the other is the live-document divergence § Approach names. **The ratchet script's two present-state sentences are enumerated the same way, and each has its twin in the build-and-test section.** *(a) The tolerance header.* Its clause "In this project nothing has been measured yet … a suite that does not exist has none" `[measured 20aa023:.githooks/coverage-ratchet.sh:22-24 · sed -n '22,24p' .githooks/coverage-ratchet.sh → "THE TOLERANCE IS ZERO, and that is a starting value, not a measurement. In this project nothing has been measured yet: a tolerance is the width of the suite's own run-to-run drift, and a suite that does not exist has none."]` is a **present-state assertion and goes**: subtask 1's commit records a measured value and leaves a workspace behind it. The judgement does not change — the tolerance stays where it is and the drift is still unobserved, because the skeletons carry no test (D8) — so what is rewritten is the *reason*, from "no suite exists" to "no drift series has been run". Its twin is the build-and-test section's tolerance paragraph, which repeats the same clause and then names this header as where the recipe lives `[measured 20aa023:AGENTS.md:174 · sed -n '174p' AGENTS.md → "The tolerance starts at **0.00 pp** … a tolerance is the width of the suite's own run-to-run drift, and a suite that does not exist has none. … The script's header carries the recipe."]`, so the two are rewritten to the same reason or they diverge exactly as the file-size pair would have. *(b) The no-executable-lines branch comment.* Its opening clause "A workspace with no executable lines yet is the state this repository starts in" `[measured 20aa023:.githooks/coverage-ratchet.sh:139-142 · sed -n '139,142p' .githooks/coverage-ratchet.sh → that clause, then "so it is a named skip and not a block. Once a crate carries code, a zero here means the measurement broke, and the suite's own failure would have blocked above."]` is a **present-state assertion and goes** — D8 measures that the binary members' `main` bodies put lines into the summary — while the sentence after it is the **conditional branch and stays**, and after this task its antecedent holds, so it becomes that branch's whole justification. Its twin is the build-and-test state table's row for the same branch, which states what the script does rather than what this repository is `[measured 20aa023:AGENTS.md:168 · sed -n '168p' AGENTS.md → the state-table row whose state reads "The workspace has no executable lines yet" and whose outcome reads "Skipped, loud. Once a crate carries code this cannot happen silently."]` — so by the rule below **that row is not edited**, and the rewritten comment must still say what the row says. **What stays:** a conditional branch inside a gate script, and a state-table row that describes one, remains a true statement about what the script does, so neither is edited — only a sentence asserting this repository's present state is. The build entry point is in the comment-reference gated set, so a rewritten comment there may name the manifest's file name (measured safe) but no repository path under a crate directory, and — per § *What the gates will read afterwards* — no `core::` path either. | `Makefile` (guard block and § file-size band comment), `ai-docs/code-style.md` (§ File size), `AGENTS.md`, `ai-docs/claude-tools-hierarchy.md` (§ CI), `ai-docs/scripts/import_guard.py`, `ai-docs/scripts/comment_refs.py`, `.githooks/coverage-ratchet.sh` | 1 |
+| 3 | The cargo ecosystem returns to Dependabot: add the cargo entry at the repository root — its cadence and its open-pull-request limit copied from the sibling `github-actions` entry, its commit prefix the `build` one the tool inventory's Dependabot section fixes, per **D13**, which also records that no gate reads this file's values — and drop the comment that explains the ecosystem's absence. Propagate to the **`/dependabot-pr`** skill's preamble (a skill of its own, not `/triage`) and to the tool inventory's Dependabot section; retire the propagation row itself, whose trigger this pull request discharges and whose claim it falsifies. **Every live sentence that points at that row is inside this subtask's own file set**, so the removal leaves nothing pointing at a deleted row `[measured 20aa023 · grep -rn -i 'propagation table' . with .git, tmp and ai-docs/plans excluded → the configuration file's own comment, the `/dependabot-pr` preamble and the tool inventory's Dependabot section, and no other live site; a constructed control line carrying the same phrase was matched, so the pattern ran]`: the configuration file's comment goes with the comment; the preamble's clause "the `cargo` ecosystem returns with the commit that creates the workspace — see the propagation table" and the tool inventory's "It returns with the commit that creates the workspace, carrying the `build` prefix, and the propagation table binds the two" each describe a restoration **this** pull request performs, so each is rewritten to describe the configuration as it then stands — the cargo and `github-actions` ecosystems both present, each with its own commit prefix — and neither acquires a replacement pointer. The tool inventory's section additionally opens by describing a single configured ecosystem, so that opening is rewritten in the same edit rather than left contradicting the entry added below it. The configuration file is itself in the comment-reference gated set, so any comment left in it obeys the same reference ban as a Rust one — no markdown path, no section sign, no repository path. | `.github/dependabot.yml`, `.claude/skills/dependabot-pr/SKILL.md` (§ preamble), `ai-docs/claude-tools-hierarchy.md` (§ Dependabot), `ai-docs/propagation-groups.md` | 1 |
 | 4 | Record the crate-naming rule (D1) as a project key decision, in the page's own shape — decision, why, consequence, source — under § Repository and process, numbered after the last row the page carries. The *consequence* field carries the measured comment-gate constraints the directory/package divergence creates (§ *What the gates will read afterwards*), since they are what a later crate author inherits and what the page exists to stop them re-litigating; the *source* field names the owner's round-2 answer, not this design. | `ai-docs/key-decisions.md` | 1 |
 
 ## Handoff plan
@@ -335,11 +361,22 @@ later one reads the earlier one's result; neither section is the other's.
   assertion and the printf spellings
   `[measured baabbb6 · for p in 'first crate' 'while the workspace' 'no workspace' 'nothing is in it' …; do grep -rn -i -- "$p" . ; done → the sites subtasks 2 and 3 name, and no other outside ai-docs/plans and tmp]`,
   and that set still missed the file-size bands, which say *the tree holds no crate* in the bands'
-  own vocabulary and in none of those patterns' words. **The pattern set subtask 2 re-runs is
-  therefore the union of the guard/era vocabulary and the bands' vocabulary** — the wording above, plus
-  `'measured against this tree'`, `'real distribution'`, `'once crates exist'` — which is what
-  reaches both twins
-  `[measured 0b2bc15 · the widened per-pattern sweep with .git, tmp and ai-docs/plans excluded → Makefile:39-41 and ai-docs/code-style.md:90 for the bands' vocabulary, and no other live site; the constructed control string was matched, so the pattern ran]`.
+  own vocabulary and in none of those patterns' words. Round 2 found a third vocabulary the same way:
+  the **ratchet script's** two present-state sentences say it in the ratchet's words — a tolerance
+  with no suite to measure, a workspace with no executable lines — and are reached by none of the
+  earlier patterns. **The pattern set subtask 2 re-runs is therefore the union of three vocabularies,
+  the guard/era one, the bands' and the ratchet's** — the wording above, plus
+  `'measured against this tree'`, `'real distribution'`, `'once crates exist'` for the bands, plus
+  `'nothing has been measured'`, `'the state this repository'`, `'suite that does not exist'`,
+  `'no executable lines'` and `'tolerance starts at'` for the ratchet — which is what reaches every
+  twin subtask 2 names and nothing else live
+  `[measured 0b2bc15 · the widened per-pattern sweep with .git, tmp and ai-docs/plans excluded → Makefile:39-41 and ai-docs/code-style.md:90 for the bands' vocabulary, and no other live site; the constructed control string was matched, so the pattern ran]`
+  `[measured 20aa023 · for p in 'nothing has been measured' 'the state this repository' 'suite that does not exist' 'no executable lines' 'tolerance starts at'; do grep -rn -i -- "$p" . ; done with the same exclusions → .githooks/coverage-ratchet.sh:23, :24 and :139, and AGENTS.md:168 and :174, and no other live site; a constructed control line was matched for every one of those patterns, so each of them ran]`.
+  **And the encoding that hid this pair is a line wrap, not a word choice** — the phrase a reader
+  would reach for spans the comment's line break, so it matches nothing in the tree while matching
+  its own control, and only the truncated form reaches the site
+  `[measured 20aa023 · grep -rn -i 'state this repository starts in' . with the same exclusions → no hit, while the identical pattern matched a constructed control line; the comment breaks between "starts" and "in", and 'the state this repository' is what reaches .githooks/coverage-ratchet.sh:139]`.
+  So the re-run's patterns stay short enough to survive a wrap, or run multiline-aware.
   Mitigation: subtask 2 re-runs the **widened** set after its edits and reads the residue rather than
   its emptiness. A residual hit is correct and stays where it is a hit in a history surface, which
   the propagation rule leaves untouched by design
@@ -420,6 +457,15 @@ against.
     review. The build entry point's half is AC4's; the code-style half is the propagation AC4's edit
     triggers, so the scenario's verdict is *agreement between the two*, not either one alone
     `[derived → AC4]`.
+  - *The ratchet script and the build-and-test section agree, in both pairs* — the same shape again,
+    for the two sentences subtask 2 enumerates. Read the rewritten tolerance header **side by side**
+    with the build-and-test tolerance paragraph and confirm both give the same reason for the
+    tolerance staying where it is, and that the recorded tolerance itself did not move; then read the
+    rewritten no-executable-lines comment side by side with the state-table row for that branch and
+    confirm the comment still says what the row says — the row being deliberately unedited, so a
+    disagreement here is the comment's. The verdict of each half is *agreement between the two*,
+    never either one alone; what it catches is a rewritten script header whose instruction-file twin
+    still carries the retired reason `[derived → AC4]`.
   - *The edited scripts still run* — the shell gate over the changed script, and the regression
     suites that drive the edited modules, since a docstring edit that breaks a module breaks its gate
     `[derived → AC3]`.
@@ -432,13 +478,29 @@ against.
   - *The configuration is well formed and names the right ecosystem* — the identifier for Rust is
     `cargo`, and both the commit-prefix and the open-pull-request-limit keys are valid for it
     `[measured docs.github.com@2026-09-18 · WebFetch https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference → the Rust identifier is "cargo"; commit-message.prefix and open-pull-requests-limit are listed as valid keys]`.
-    This file is not reached by the workflow linter, which reads the workflow directory only, so the
-    check is a read of the options reference against the written entry `[derived → AC4]`.
-  - *Both documents describe the configuration as it now stands* — read the triage skill's preamble
-    and the tool inventory's Dependabot section back against the file `[derived → AC4]`.
+    No gate reads this file's values at all (D13 measures it: no script in the tree names the file,
+    and the workflow linter's recipe globs the workflow directory), so the check is a read of the
+    options reference against the written entry `[derived → AC4]`.
+  - *Each field of the new entry is read back against the source that fixes it — and for the prefix
+    that source must not be the rewrite.* The only live document fixing `build` is the tool
+    inventory's § Dependabot, which this same subtask rewrites, so comparing the entry against the
+    rewritten section compares the edit with itself and passes however wrong the value is. Read the
+    written `commit-message.prefix` back against the **pre-change** § Dependabot, taken from git
+    (`git show <merge-base>:ai-docs/claude-tools-hierarchy.md`), which the rewrite cannot move; read
+    the cadence and the open-pull-request limit back against the sibling `github-actions` entry in
+    the configuration file itself, which D13 makes their source, rather than against any prose. A
+    mismatch in either direction is a finding — nothing downstream would catch one `[derived → AC4]`.
+  - *Both documents describe the configuration as it now stands* — read the **`/dependabot-pr`**
+    skill's preamble and the tool inventory's Dependabot section back against the file, and check in
+    particular that neither still promises a future restoration and that the inventory's opening no
+    longer describes a single configured ecosystem `[derived → AC4]`.
   - *The discharged propagation row is gone and nothing still points at it* — sweep the harness corpus
-    for references to that row before removing it `[derived → AC4]`.
-- Fixtures: none.
+    for references to that row **after** removing it as well as before, and read the residue rather
+    than its emptiness; the sweep's own pattern is checked against a constructed control line first,
+    since an empty result is otherwise equally consistent with a pattern that never ran
+    `[derived → AC4]`.
+- Fixtures: the pre-change tool-inventory § Dependabot from `git show <merge-base>:…`, used as the
+  prefix check's independent source; and a constructed control line for the propagation-row sweep.
 
 **Subtask 4 — the key decision.**
 
