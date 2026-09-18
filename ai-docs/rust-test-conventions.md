@@ -47,7 +47,11 @@ fn rejects_the_named_failure_classes() {
 
 A test's verdict never depends on what the model returns ([`domain-invariants.md`](domain-invariants.md) INV-12). A unit test stands on a **recorded fixture**: a captured response, stored beside the test, with the model and the parameters that produced it named in the fixture itself.
 
-Anything that must call the model is an **eval**, not a test: it is marked as one, it runs under the eval conditions (temperature zero, draft head off, no expert offload), and it reports a measurement rather than passing or failing a build.
+Anything whose verdict rests on the **quality** of what the model returned is an **eval**, not a test: it is marked as one, it runs under the eval conditions (temperature zero, draft head off, no expert offload), and it reports a measurement rather than passing or failing a build.
+
+The conformance test is not an exception to that rule but an illustration of it. It does call a model, and it still asserts nothing about what came back — only the shape, the status code and the schema. What decides the category is what the verdict rests on, never whether a model was involved.
+
+The suite reaches the CPU-only miniature models under `testdata/models/` and nothing else. It never talks to a server that holds the GPU: the production model occupies nearly all of the VRAM, and a test contending for it makes its own result and the server's throughput both mean less than they claim. A check the miniature models cannot support is **raised with the owner**, never redirected at a real model.
 
 ## Postgres is tested against Postgres
 

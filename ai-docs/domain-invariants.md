@@ -34,7 +34,7 @@ The rules that outrank convenience. Each one is enforced by review — the revie
 
 **INV-11 — Performance measurements are repeated and interleaved.** A sequential sweep of several configurations on a machine whose memory is comparable to the models' size carries an order-dependent bias; a single run of each is not a comparison (`AGENTS.md` § Что легко сделать неправильно).
 
-**INV-12 — A test's verdict never depends on what the model returns.** Anything model-backed is an eval, marked as one and held to INV-10; a unit test stands on a recorded fixture.
+**INV-12 — A test's verdict never depends on what the model returns.** What decides the category is what the verdict rests on, never whether a model was called: a check resting on the *quality* of a reply is an eval, marked as one and held to INV-10, while a conformance test may call a miniature model and assert only shape, status code and schema. A unit test stands on a recorded fixture. The suite reaches the CPU-only miniature models under `testdata/models/` and never a server that holds the GPU, because a test contending for VRAM with the production model makes both results mean less than they claim; a check those models cannot support is raised with the owner, never redirected at a real model.
 
 ## Storage and schema
 
