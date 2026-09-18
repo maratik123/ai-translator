@@ -138,10 +138,10 @@ Every regression suite must pass `shellcheck -s bash` and run green before `git 
 
 **A filtered-out job is not a passing job.** The paths filter decides what runs; a new artefact class must be added to it in the same pull request that introduces it, or its gate silently stops running.
 
-**While the workspace is empty, every Rust gate skips itself loudly and exits 0** — there is no manifest at the root until the first crate lands. The skips disappear with the commit that creates the workspace; no gate has to be switched on by hand.
+**Every Rust gate runs for real: there is no skip branch left in the recipes.** The workspace manifest sits at the root, so each gate is the bare command, and a checkout or a runner that cannot run it fails loudly instead of exiting 0.
 
 **Which of these checks block the merge button is the `master` ruleset's to say**, not this page's. A required check is matched by the job's display name; renaming or removing a job without the same change to the ruleset leaves that check pending for ever and blocks every pull request. `ai-docs/scripts/check-ruleset-checks.sh` refuses a tree whose job names and required checks differ in either direction, and passes with a notice when no rule requires checks. The ruleset itself is the owner's to change.
 
 ## Dependabot — `.github/dependabot.yml`
 
-Weekly. One ecosystem today — `github-actions` (commit prefix `ci`), five open pull requests. The `cargo` ecosystem is left out while the workspace does not exist: Dependabot resolves a manifest at the directory it is given, and with none it ends every scheduled run as a failed updater run, which is a red run on the default branch and a false positive for the flow that watches for one. It returns with the commit that creates the workspace, carrying the `build` prefix, and the propagation table binds the two. `/dependabot-pr` triages the `cargo` ones; a `github-actions` pull request bails at preconditions as out of scope for the first version.
+Weekly. Two ecosystems, both at the repository root and both capped at five open pull requests — `github-actions` with the commit prefix `ci`, and `cargo` with the commit prefix `build`. `/dependabot-pr` triages the `cargo` ones; a `github-actions` pull request bails at preconditions as out of scope for the first version.

@@ -24,3 +24,29 @@ An entry is a conduct correction or a validation of this project's own runs; a d
 **at:** `chore/testdata-models` @ b65356c
 **Kind:** correction
 **Escalated?** no
+
+### 2026-09-18 — search — a line number attributed by position in a probe's output instead of read from it
+**What happened:** Verifying a design-review finding that a `[measured …:22-24]` tag was off by one, I ran `sed -n '21,24p' .githooks/coverage-ratchet.sh`, saw the quoted clause among the four printed lines, and told the owner the finding held and the clause begins at line 21. It begins at 22; line 21 is a bare `#`. `sed -n` prints no line numbers, so the attribution was inferred from the position of the line in the output rather than read from the instrument — and the range I was handed by the finding was exactly the one that makes the inference come out wrong. The `design-writer` delegate refused the fold-in, re-resolved with `grep -n 'THE TOLERANCE IS ZERO'` → `22:`, and was right; I had reported the reviewer's error onward as independently confirmed.
+**Rule:** When the claim under test **is** a coordinate, the probe must print the coordinate — `grep -n` for the clause's own words, or `awk 'NR>=a && NR<=b {printf "%d|%s\n", NR, $0}'` — never a range printer whose output the reader numbers by counting. Reaching for the range from the finding also anchors the probe to the claim it is supposed to test independently; derive the range from a search for the content instead. This is the ast-index rule *assert that the probe LANDED where the instrument looks, and report where that is*, in the case where where-it-landed is the whole question.
+**at:** e1f8a4d
+**Kind:** correction
+**Escalated?** no
+
+### 2026-09-18 — process — an instruction file's size measured while deciding how to read it
+**What happened:** About to read the handoff protocol before spawning the first Step-8 group, I ran `wc -l` on a skill file together with `cat`, to size the read before making it. A `PreToolUse` hook refused the command: the size of `AGENTS.md`, `CLAUDE.md` and `.claude/{skills,agents,rules}/**.md` belongs to `/ai-audit` alone, and every other flow is forbidden to measure it, report it or plan around it — **including for the purpose of deciding how to read a file**, which is exactly the purpose I had. The plain `cat` that followed was always the right call and cost nothing extra.
+**Rule:** Never size an instruction file. Read it with `cat`, or navigate it with `sed -n` ranges and `grep -n` for structure. "I only wanted to know how much to read" is the motive the rule names and refuses, not an exemption from it — a habit of sizing a file before opening it is correct for a data file and prohibited for this class.
+**at:** 2ddf9de
+**Kind:** correction
+**Escalated?** no
+
+### 2026-09-18 — tooling — `pkill -f` matched the calling shell's own command line
+**What happened:** To stop a slow background sweep I ran `pkill -f` with a pattern naming the script. The pattern matched the very Bash invocation that carried it, so the command killed its own process tree and returned exit 144; the background task was reported as failed rather than stopped.
+**Rule:** `pkill -f <pattern>` matches every process whose full command line contains the pattern — including the shell running the `pkill`. The project already records this failure mode for one specific target, but it is a property of `-f`, not of that target: kill by exact process name (`pkill -x <name>`), by recorded PID, or with the flow's own stop control, and never with a pattern that the issuing command line itself contains.
+**Kind:** correction
+**Escalated?** no
+
+### 2026-09-18 — tooling — read a gate's result through a truncating filter instead of a captured log
+**What happened:** Reading the coverage ratchet's result at the end of a subtask, I ran the gate target and filtered its output through a line-truncating pager in the same pipeline. A `PreToolUse` hook refused the command. Had it run, the recorded exit status would have been the filter's — always zero — so a red ratchet would have been recorded as green.
+**Rule:** A gate whose exit status is load-bearing is never piped. Redirect it to a file under the scratch directory, branch on the gate's own status, and read the saved log afterwards. This binds a one-line convenience read at the end of a turn exactly as it binds the deliberate gate run at the start of one — the shape is the hazard, not the intent. A second consequence learned in the same turn: the hook matches command TEXT, so a later command that merely quotes such a pipeline is refused too; describe the shape in prose rather than reproducing it.
+**Kind:** correction
+**Escalated?** no
