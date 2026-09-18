@@ -6,7 +6,7 @@ An entry's heading carries the task's name and, until the pull request exists, t
 
 This log starts empty.
 
-## Workspace and crate skeletons — the cargo gates now bind (#TBD-at-Step-12, 2026-09-18)
+## Workspace and crate skeletons — the cargo gates now bind (#70, 2026-09-18)
 
 The repository had no Cargo manifest at its root, so every cargo gate detected that and exited 0 with a
 named skip. A green aggregate run was therefore evidence about nothing. This task laid down the virtual
