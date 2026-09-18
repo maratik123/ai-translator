@@ -18,7 +18,7 @@ Read on session start:
 1. All thematic files: every `*.jsonl` under `ai-docs/deferred/` **except** `_inbox.jsonl` (discover via `find ai-docs/deferred -maxdepth 1 -name '*.jsonl' ! -name '_inbox.jsonl'`). This repository starts with none — thematic files accumulate as inbox rows are sorted into topic areas; an empty thematic set is expected, not an error.
 2. `ai-docs/deferred/_inbox.jsonl`.
 3. (No index file — per-file `wc -l` is the canonical row tally for the end-of-run count summary.)
-4. `ai-docs/triage/triage-YYYY-MM-DD.progress.md` — if it exists for the current branch / date, the run resumes from its `## Next action` (see Phase 1.5 below). Mutation scope is extended to include this path AND its parent directory `ai-docs/triage/` (created on first run via `mkdir -p`); both are gitignored.
+4. `ai-docs/triage/triage-YYYY-MM-DD.progress.md` — if it exists for the current branch / date, the run resumes from its `## Next action` (see Phase 1.5 below). Mutation scope is extended to include this path AND its parent directory `ai-docs/triage/` (created on first run via `mkdir -p`). What is gitignored is the progress file, by the glob stated below — **not** the directory, so anything else written there surfaces in `git status`, which is the intent: only the run's own record is hidden.
 5. Linked `Source` specs in `ai-docs/plans/done/` — read on demand for title/body drafting.
 
 Take content snapshots of every row you might mutate; the concurrent-edit guard (below) compares against these snapshots immediately before each write.

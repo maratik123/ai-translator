@@ -117,7 +117,7 @@ Honour-system rules (no machine check; still binding):
 - **DENY:** a real credential — a connection string with a password, an API key, a token — in any tracked file, including a test fixture, an example, a commit message and a pull-request body. The database connection lives in the environment variable the process reads; a document names the variable, never a value. A leaked credential is rotated, not edited out of history.
 - **ASK:** any tool not allow-listed in `settings.json`; if denied, suggest an alternative.
 
-On session start: read `.gitignore`, treat matched paths as a read blacklist. Production model weights and book texts are local and ignored — never read them into a durable artefact. The miniature models under `testdata/models/` are tracked and are not covered by that blacklist.
+On session start: read `.gitignore`, treat matched paths as a read blacklist. Production model weights and book texts are local and ignored — never read them into a durable artefact. The miniature models under `testdata/models/` are tracked and are not covered by that blacklist. **The blacklist is about local DATA, never about the harness's own working files**, which are ignored so they stay out of a commit and not so they stay out of a read: the gate logs under `tmp/` are grepped by the capture-and-grep rule in § *Build & Test*, and a flow's own state — an in-flight marker, a run's progress record, a retired record under an `ignored/` directory — is written and re-read by the flow that owns it, including after a compaction, when that file is the only thing standing between the run and a cold start.
 
 ## Build & Test
 
