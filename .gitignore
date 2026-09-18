@@ -8,3 +8,17 @@
 /tmp/
 /target/
 __pycache__/
+
+# The flows' own state: an in-flight marker, a run's record while it is still
+# untracked, and the directories a finished run retires its record into. A flow
+# that wants its record in a commit forces it in, and the force stops being
+# needed once the file is tracked — so ignoring these costs nothing and keeps a
+# finished run out of the next run's status. A retired record stays on disk.
+/ai-docs/plans/.task-inflight
+/ai-docs/plans/*.progress.md
+/ai-docs/plans/ignored/
+/ai-docs/main-ci/
+/ai-docs/pr-comments/
+/ai-docs/ci-fixes/
+/ai-docs/dependabot/
+/ai-docs/triage/**/*.progress.md
