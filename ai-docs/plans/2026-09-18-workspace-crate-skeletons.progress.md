@@ -5,11 +5,11 @@ _Updated: 2026-09-18 20:30_
 
 **Branch:** feat/2026-09-18-workspace-crate-skeletons
 **base_commit:** 5fd1a041c804f2d658cd7832b4656438cfa4b617
-**Last build:** green — `make verify` (the whole aggregate) after subtask 2's edits; subtask 3 touched no Rust path
+**Last build:** PASS — `make verify` green at 0421983
 **Issue:** #10
 **Spec:** ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md
-**current_step:** Step 8 — subtask 4 of 4 complete; Group B done, both groups returned
-**last_passed_gate:** the 23 harness guard regression suites and the six standalone harness checkers, all green, plus the relative-markdown-link check over 84 documents and 207 links
+**current_step:** Step 9 — Verify (ALL PASS)
+**last_passed_gate:** `make verify` | 2026-09-18T18:35:13Z | 0421983
 **entry_args:** 10
 
 ## Next action
@@ -45,6 +45,7 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 8 (subtask 4)**: the relative-link check was re-run after the edit over 84 documents and 207 relative links with none broken; the corpus size was printed before the verdict so that the clean result is about the documents and not about an enumeration that reached nothing.
 - **Step 8 (Group B close)**: the widened sweep was run a third time after all three subtasks. No live document or script still states the empty-workspace era: every residual hit is a conditional printf, a state-table row, a docstring governed by its own `While`/`Once`, `.claude/**` rule text, or a rewritten sentence matched on a surviving pattern word. AC4 is discharged.
 - **Step 8 (subtask 3)**: the CI paths filter needs no edit for this change — its `commentrefs` key already lists `**/*.yml`, so the configuration file reaches the comment-reference job, and the two documents are under the harness key's `.claude/**` and `ai-docs/**`.
+- **Step 9**: every acceptance criterion was re-verified by the orchestrator's own command rather than from a delegate's summary; the AC4 sweep ran over 150 tracked live files with each of its twelve patterns matched against a constructed control first, and its three surviving hits are the conditional statements the design rules stay. No panic-index row was added and no domain invariant is touched — the diff's only domain word is prose inside a remit comment.
 
 ## GO notes
 
@@ -72,11 +73,11 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 
 | AC | Status |
 |----|--------|
-| AC1 | NOT_TESTED |
-| AC2 | NOT_TESTED |
+| AC1 | PASS |
+| AC2 | PASS |
 | AC3 | PASS — `make verify` ran every gate and its capture carries no skip line, while the pre-change entry point's capture in a manifest-less scratch directory does |
 | AC4 | PASS — the widened four-vocabulary sweep, re-run after every subtask, leaves no live document or script asserting the era; each residual hit was read and classified |
-| AC5 | NOT_TESTED |
+| AC5 | PASS |
 
 ## Review register
 
