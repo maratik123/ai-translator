@@ -12,10 +12,29 @@ The repository carries no Cargo manifest at any depth
 so every cargo recipe of the project's build entry point takes a guard branch that prints a named
 skip and exits 0
 `[measured baabbb6:Makefile:25-31 · sed -n '25,31p' Makefile → the comment block headed "WHILE THE WORKSPACE IS EMPTY every cargo gate below skips itself" and the CARGO_GUARD definition that prints "no Cargo.toml at the repository root; <target> skipped"]`.
-The same era is asserted in prose elsewhere in the tree — in live documents and in two gate scripts'
+The same era is asserted in prose elsewhere in the tree — in live documents and in the gate scripts'
 own docstrings — and this diff falsifies each of those sentences
 `[measured baabbb6 · a multi-pattern case-insensitive sweep, for p in 'first crate' 'while the workspace' 'no workspace' 'nothing is in it' 'crate lands' 'no crate'; do grep -rn -i -- "$p" . ; done → the sites subtasks 2 and 3 name, and no live site outside them]`.
-They are enumerated in subtasks 2 and 3 below.
+
+A second class of sentence says the same thing in different words and was missed by that pattern
+set: the **file-size bands** are documented as unmeasured *because the tree holds no crate*, in the
+build entry point's own comment and in its twin in the code-style reference. Widening the sweep with
+the bands' own wording reaches both and nothing else live
+`[measured 0b2bc15 · for p in 'measured against this tree' 'real distribution' 'once crates exist' 'nothing is in it'; do grep -rn -i -- "$p" . ; done, with .git, tmp and ai-docs/plans excluded → Makefile:39-41 and ai-docs/code-style.md:90, and no other live site; the constructed control string "measured against this tree" written to a scratch file was matched, so the pattern ran]`.
+Both sentences are subtask 2's, and the judgement they now carry is the same one: crates exist after
+this task, so the trigger they name has fired, but a skeleton is **not** the real distribution the
+bands wait for, so the re-set stays deliberately deferred to the task that has code to measure
+`[derived → AC1]`. The bands themselves do not move here.
+
+**Which criterion owns which twin is worth stating, because they differ.** The build entry point's
+band comment sits in the same file as the manifest guard and asserts the same empty tree, so
+correcting it is part of the AC4 edit `[derived → AC4]`. The code-style reference's twin asserts
+nothing about the cargo gates, so it is **not** AC4 work on its own — it is the propagation that the
+AC4 edit triggers, and leaving it standing while its sibling is rewritten is exactly the divergence
+the propagation rule's *every live document must agree* step exists to prevent
+`[measured 0b2bc15:AGENTS.md:310 · grep -n 'Every LIVE document must agree' AGENTS.md → 310: § Propagation Rule step 4, "Every LIVE document must agree; history surfaces (`ai-docs/learnings.md`, `ai-docs/plans/done/**`) are left untouched."]`.
+
+All of these sites are enumerated in subtasks 2 and 3 below.
 
 This task does two things: it lays the workspace and its skeleton members down so the cargo gates
 bind on real code, and it retires the empty-workspace era wherever the repository still states it.
@@ -33,7 +52,7 @@ fixes
 so the directory layout below is the corpus's, not a new one. The corpus's own structure stands: the
 spec records the owner's choice to deliver the member set the task text names and to leave the server
 crate to its own task
-`[measured baabbb6:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md:27-42 · sed -n '27,42p' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md → § Deferred routes the server crate to a separate issue and § Source conflicts resolves the member set to the task text's, by the owner's round-1 answer "Четыре"]`,
+`[measured 0b2bc15:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md:26-42 · sed -n '26,42p' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md → § Deferred routes the server crate to a separate issue and § Source conflicts resolves the member set to the task text's, by the owner's round-1 answer "Четыре"]`,
 and the build-and-deploy page keeps its unticked workspace row, which also covers the server member
 and the frontend workspace
 `[measured baabbb6:docs/09-build-and-deploy.md:4 · sed -n '4p' docs/09-build-and-deploy.md → "- [ ] Workspace `Cargo.toml` с `shared`, `core`, `cli`, `server`, `migrate`; `frontend` с `pnpm`."]` —
@@ -50,10 +69,38 @@ The built-in derives survive it, so the failure is latent until the first proc-m
 arrives
 `[measured rustc@1.98.1 · the same dependent carrying #[derive(Debug, Clone, PartialEq)] and no written ::core:: path → compiles]`.
 Prefixing uniformly removes the whole class rather than special-casing one member, and it makes the
-binary names fall out of the package names with no target override (D3). The corpus names the crates
-by role in prose (`core`, `shared`), which the directories keep; what the corpus does not state is
-the package name, so this is surfaced for confirmation in § Open questions rather than decided
-silently.
+binary names fall out of the package names with no target override (D3).
+
+**The corpus names the crates by role and never by package, at every site that names them, and the
+owner ruled on the silence.** The live corpus sites that name a crate are the repository-structure
+block, which binds each directory to its role and fixes the executable names
+`[measured baabbb6:docs/ARCHITECTURE.md § Структура репозитория · git show baabbb6:docs/ARCHITECTURE.md | sed -n '/^## Структура репозитория/,/^## Документы/p' → "/crates/shared … /crates/core движок (см. 11) … /crates/cli reader-cli … /crates/migrate reader-migrate: единственное место, где накатываются миграции"]`;
+the backend module map, which assigns the modules to crates by role
+`[measured 0b2bc15:docs/backend/ARCHITECTURE.md:3 · sed -n '3p' docs/backend/ARCHITECTURE.md → "Модули ниже живут в крейте `core`, кроме `http/` и `ws/`, которые составляют крейт `server`."]`;
+the build-and-deploy task row, which is the row describing the workspace manifest's own contents
+`[measured 0b2bc15:docs/09-build-and-deploy.md:4 · sed -n '4p' docs/09-build-and-deploy.md → "- [ ] Workspace `Cargo.toml` с `shared`, `core`, `cli`, `server`, `migrate`; `frontend` с `pnpm`."]`;
+and the core-API page's opening row
+`[measured 0b2bc15:docs/11-core-api-and-cli.md:7 · sed -n '7p' docs/11-core-api-and-cli.md → "- [ ] Крейт `core` с публичным `Engine`:"]`.
+Every one of them writes the short role name and none of them writes a package name — including the
+structure block and the build-and-deploy row, which are precisely the rows a reader would consult for
+the manifest's contents. So the silence is the corpus's across the whole set the decision rules over,
+not a gap in one page. What the corpus *does* write with a `reader-` prefix is only ever an
+**executable** name, at every occurrence
+`[measured 0b2bc15 · grep -rn 'reader-' docs/ → only `reader-cli` and `reader-migrate`, each as a binary that is listed in the structure block or invoked in a task row; no `reader-shared` and no `reader-core` anywhere; a constructed control string "reader-x" written to a scratch file was matched, so the pattern ran]`.
+Under D3 the executable name falls out of the package name, so for the binary members D1 adopts a
+name the corpus already fixed; the genuinely new names it introduces are the library members'
+`[derived → AC1, AC2]`.
+
+Since the corpus is DECISIONS and this is a question it leaves open, it was put to the owner rather
+than decided silently. The owner's answer, verbatim, is **"reader-\* у всех"**, with the directories
+fixed in the same exchange: "каталоги в любом случае остаются shared/core/cli/migrate"
+`[measured 0b2bc15:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md.state.md:44-46 · sed -n '44,46p' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md.state.md → the round-2 prior_qa entry whose question names the package-name silence and whose answer is "reader-* у всех"]`.
+So the packages are `reader-shared`, `reader-core`, `reader-cli` and `reader-migrate`, and the
+directories stay `crates/shared`, `crates/core`, `crates/cli` and `crates/migrate`. This is a design
+decision carrying the owner's words; it is **not** a spec row and none is added for it. The
+divergence it creates between directory name and package name has a measured consequence inside the
+comment-reference gate — see § *What the gates will read afterwards*, where it is stated as a
+standing constraint rather than as a finding.
 
 **D2 — Edition 2024, with `resolver = "3"` written explicitly on the virtual manifest.** A virtual
 manifest whose members are on edition 2024 and which states no resolver emits a warning on every
@@ -77,16 +124,16 @@ workspace depends on it
 `[measured baabbb6:AGENTS.md § API Stability · grep -n 'nothing outside this workspace depends on it' AGENTS.md → 183: "ai-translator is an application, not a library — nothing outside this workspace depends on it."]`;
 the flag makes an accidental publish a refusal rather than an upload. `license` is set from the
 repository's own licence
-`[measured baabbb6:LICENSE:1-2 · head -2 LICENSE → "Apache License / Version 2.0, January 2004"]`,
+`[measured 0b2bc15:LICENSE:1-3 · head -3 LICENSE → a blank line, then "Apache License", then "Version 2.0, January 2004"]`,
 which the README states in the same terms
 `[measured baabbb6:README.md:37-39 · sed -n '37,39p' README.md → the § Лицензия section names Apache License 2.0 and links the repository's licence file]`.
 
 **D5 — `[workspace.dependencies]` is present and empty, carrying a comment that states the rule.**
 The mechanism is the owner's own words in the issue; the width of the set is the owner's round-1
 answer
-`[measured baabbb6:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md.state.md:43 · grep -n 'Минимум' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md.state.md → 43: answer: "Минимум"]`,
+`[measured 0b2bc15:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md.state.md:43 · grep -n 'Минимум' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md.state.md → 43: answer: "Минимум"]`,
 which the spec carries in both its scope row and its key-decisions row
-`[measured baabbb6:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md:14,33 · grep -n 'Минимум' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md → the scope row "the set reaches no further than what the skeletons compile with" and the decision row "a dependency nothing yet compiles against is not declared in advance"]` —
+`[measured 0b2bc15:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md:14,33 · grep -n 'Минимум' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md → the scope row "the set reaches no further than what the skeletons compile with" and the decision row "a dependency nothing yet compiles against is not declared in advance"]` —
 nothing is declared for later use. Nothing the skeletons compile with is a third-party crate, so the table has
 no rows yet, and the empty table is what the next task adds its first row to. An empty table is
 accepted by the toolchain with no diagnostic `[measured cargo@1.98.1 · cargo build --workspace --all-targets and cargo metadata --locked --format-version 1 against a workspace carrying an empty [workspace.dependencies] → both succeed, no warning line]`.
@@ -96,7 +143,7 @@ issue names.
 **D6 — No dependency edge between members.** Nothing in a skeleton compiles against another
 skeleton, so the engine crate does not depend on the protocol crate and neither binary depends on
 the engine. An edge added now would be a dependency declared for later use, which the spec refuses
-`[measured baabbb6:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md:24 · sed -n '24p' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md → "Declaring a dependency the skeletons do not compile with, for later use."]`;
+`[measured 0b2bc15:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md:24 · sed -n '24p' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md → "Declaring a dependency the skeletons do not compile with, for later use."]`;
 the task that writes the first call adds it `[derived → AC1]`.
 
 **D7 — No `[workspace.lints]`, no `rust-toolchain.toml`, no `rust-version`.** The linter posture is
@@ -143,8 +190,13 @@ it updates from the default branch only
 `[measured docs.github.com@2026-09-18 · WebFetch https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuring-dependabot-version-updates → "When this file is checked in, Dependabot checks the manifest files on the default branch for outdated dependencies"]`,
 and `master` is reached by a merge commit only, so the interval between two commits of a feature
 branch is not a state Dependabot ever sees. Keeping the restoration in its own commit is what lets
-the code group and the harness group stay change-type homogeneous. The wording discrepancy is raised
-in § Open questions.
+the code group and the harness group stay change-type homogeneous.
+
+The discrepancy was put to the owner rather than resolved by this design. The owner's answer,
+verbatim, is **"Снять строку"** — the project follows the AXIOM and retires the row as discharged
+`[measured 0b2bc15:ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md.state.md:47-49 · sed -n '47,49p' ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md.state.md → the round-2 prior_qa entry whose question names the same-commit / same-pull-request discrepancy and whose answer is "Снять строку"]`.
+Subtask 3 removes it. This is a design decision carrying the owner's words, not a spec row, and the
+owner wanted no `harness-gaps.md` entry for it.
 
 **D11 — The lockfile is generated by the build and committed.** The lockfile gate runs
 `cargo metadata --locked`, which fails rather than writing one
@@ -159,7 +211,10 @@ states its own standing rule that a decision reached during a task is recorded t
 pull request that takes it
 `[measured baabbb6:ai-docs/key-decisions.md:7 · sed -n '7p' ai-docs/key-decisions.md → "A decision reached during a task is recorded here in the same pull request that takes it, with the same shape."]`.
 D1 binds every crate this repository will ever add, including the deferred server member, so it is
-the one decision here that outlives the task.
+the one decision here that outlives the task. Because it outlives the task, its *consequence* field
+carries the measured comment-gate constraints the directory/package divergence creates — see
+§ *What the gates will read afterwards*. Recording the decision without them would hand a later crate
+author a rule whose cost is invisible until a commit-blocking gate refuses their doc comment.
 
 ### What the gates will read afterwards
 
@@ -173,14 +228,42 @@ specifying anything: its repository-path class already lists the crate
 directory among the top-level names, and its root-name set is a fixed literal that the root manifest's
 file name does not join
 `[measured baabbb6:ai-docs/scripts/comment_refs.py:42-54 · sed -n '42,54p' ai-docs/scripts/comment_refs.py → GATED_ROOT_NAMES is the literal set {"Makefile", ".gitignore"}, and REPO_TOP_DIRS already lists "crates"]`;
-its crate-symbol class becomes live, reading both each member's package name and each crate
-directory's own name
-`[measured baabbb6:ai-docs/scripts/comment_refs.py:98-126 · sed -n '98,126p' ai-docs/scripts/comment_refs.py → workspace_crates adds the manifest's name field and the directory entry name, and own_crate exempts a comment inside the crate it names]`.
-No comment anywhere in the gated set trips that class under the crate-name set this task creates
-`[measured baabbb6 · python3 tmp/probe-crate-symbol.py, which classifies every tracked gated comment against that name set → no comment reported; the constructed control "core::Engine" was reported as crate-symbol outside the crate and reported nothing inside it, and a constructed "Cargo.toml" string was reported as nothing]`.
-The consequence for the new sources is a constraint, not a finding: a `//!` comment may not name a
-repository path, a markdown file, a section sign, an issue number, a URL or another member's
-crate-qualified symbol
+its crate-symbol class becomes live, and **under D1 the name set it reads is not what a reader would
+guess from the directory layout.** The gate's own functions were executed against a D1-shaped tree
+rather than read: `workspace_crates` adds the manifest's `name` field *and* the directory entry name,
+unconditionally and with hyphens folded to underscores, while `own_crate` returns the **directory**
+segment alone
+`[measured 0b2bc15:ai-docs/scripts/comment_refs.py:98-126 · PYTHONPATH=ai-docs/scripts python3 -c "import comment_refs as cr; print(sorted(cr.workspace_crates('tmp/wsprobe')))" over a scratch tree whose crates/core and crates/cli manifests are named reader-core and reader-cli → ['cli', 'core', 'reader_cli', 'reader_core']]`.
+
+The consequences below follow, and each was run through `classify` rather than derived from the source
+`[measured 0b2bc15:ai-docs/scripts/comment_refs.py:122-158 · python3 tmp/probe-own-crate.py, which calls cr.own_crate and cr.classify on constructed comments against that name set → the instrument was seen in both directions: "//! core::Engine" inside crates/core/src/lib.rs returned no finding (own-crate exemption fires) while "//! reader_shared::Protocol" inside crates/cli/src/main.rs returned crate-symbol (the class is live)]`:
+
+- **The own-crate exemption keys on the directory name, so the package name is NOT exempt inside its
+  own crate.** A comment in `crates/core/src/lib.rs` writing the package-qualified form is reported
+  `[measured 0b2bc15:ai-docs/scripts/comment_refs.py:122-158 · the same probe, case "//! reader_core::Engine" in crates/core/src/lib.rs → [('crate-symbol', 'reader_core::Engine')]]`.
+  A crate's own contract symbol is therefore written in its **directory-name** form inside its own
+  crate, never in its package-name form.
+- **The bare directory token `core` is in the name set unconditionally, so `core::` is not writable
+  in any gated comment outside `crates/core`** — a standard-library path such as `core::fmt::Debug`
+  in a comment in another member, in a shell script or in a workflow is reported
+  `[measured 0b2bc15:ai-docs/scripts/comment_refs.py:122-158 · the same probe, case "//! core::fmt::Debug" in crates/shared/src/lib.rs and case "# core::fmt::Debug" in a gated script → [('crate-symbol', 'core::fmt')] for both; the same string inside crates/core/src/lib.rs → no finding]`.
+  This revives, inside a commit-blocking gate, exactly the `core`-shadowing class D1 removes from the
+  compiler — with the difference that the gate's version is a lexical false positive on a comment,
+  not a broken build.
+
+Neither consequence bites this task: the skeleton comments carry no qualified symbol at all, and no
+comment already in the tracked gated corpus trips the class under the confirmed D1 name set
+`[measured 0b2bc15:ai-docs/scripts/comment_refs.py:122-158 · python3 tmp/probe-gated-corpus.py, which enumerates the tracked gated corpus through git ls-files and cr.GATED_SOURCE_EXTS / cr.GATED_ROOT_NAMES and runs cr.classify over every line of it against the reader-prefixed name set → no crate-symbol finding; the enumeration was asserted non-empty before the verdict was read, and the instrument was seen in both directions on a constructed control — "core::fmt::Debug" with no own crate returned crate-symbol, the same string with own="core" returned nothing]`.
+But D12 escalates D1 to a standing rule binding every crate this repository will ever add, so the
+constraints are recorded here as **standing constraints on future comments**, inherited by every
+later task, and D12's key-decisions row carries them as the decision's consequence. Whether
+`comment_refs.py` should bridge directory name to package name — so that the own-crate exemption
+covers both forms and the bare role token leaves the set — is a follow-up this task does not take;
+it is routed in § Open questions.
+
+Beyond the crate-symbol class the new sources are under the ordinary reference ban: a `//!` comment
+may not name a repository path, a markdown file, a section sign, an issue number, a URL or another
+member's crate-qualified symbol
 `[measured baabbb6:ai-docs/doc-convention.md § DOC-4 · sed -n '57,90p' ai-docs/doc-convention.md → the banned-class table lists each of them, with the own-crate contract symbol exempted]`,
 so each crate comment states its own remit and stops there `[derived → AC1]`.
 
@@ -195,9 +278,9 @@ Nothing in a skeleton panics `[derived → AC3]`.
 | # | Task | Files | Depends on |
 |---|------|-------|------------|
 | 1 | The workspace manifest and its skeleton members: virtual root manifest (members, `resolver`, `[workspace.package]`, empty `[workspace.dependencies]`), one manifest and one root source per member, each binary member packaged under the executable name the spec fixes for it, the lockfile generated by the build. The commit's own pre-commit hook measures coverage, finds no ratchet file and initialises it at the measured value, staging it into this same commit. | `Cargo.toml`, `Cargo.lock`, `crates/shared/Cargo.toml`, `crates/shared/src/lib.rs`, `crates/core/Cargo.toml`, `crates/core/src/lib.rs`, `crates/cli/Cargo.toml`, `crates/cli/src/main.rs`, `crates/migrate/Cargo.toml`, `crates/migrate/src/main.rs`, `ai-docs/coverage-ratchet.txt` (written and staged by the hook, not by hand) | — |
-| 2 | Retire the empty-workspace guard and every live statement of it: delete the manifest guard and its comment block from the build entry point and leave each recipe as the bare gate command; correct the same file's file-size comment, which asserts the tree is empty (the bands themselves are not re-set — a skeleton is not the real distribution they wait for); replace the build-and-test blockquote and the tool-inventory sentence that assert the era; correct the gate-script docstrings and the script comment that assert this repository's present state. **What stays:** a conditional branch inside a gate script, and a state-table row that describes one, remains a true statement about what the script does, so neither is edited — only a sentence asserting this repository's present state is. The build entry point is in the comment-reference gated set, so a rewritten comment there may name the manifest's file name (measured safe) but no repository path under a crate directory. | `Makefile`, `AGENTS.md`, `ai-docs/claude-tools-hierarchy.md` (§ CI), `ai-docs/scripts/import_guard.py`, `ai-docs/scripts/comment_refs.py`, `.githooks/coverage-ratchet.sh` | 1 |
+| 2 | Retire the empty-workspace guard and every live statement of it: delete the manifest guard and its comment block from the build entry point and leave each recipe as the bare gate command; replace the build-and-test blockquote and the tool-inventory sentence that assert the era; correct the gate-script docstrings and the script comment that assert this repository's present state. **The file-size band comment and its twin are corrected together:** the build entry point's band comment and the code-style reference's § File size paragraph both say the bands are unmeasured *because the tree holds no crate*, and both are rewritten to the same judgement — crates exist after this task, so the trigger they name has fired, but a skeleton is not the real distribution they wait for, so the re-set stays deliberately deferred to the task that has code to measure. The bands themselves do not move. Rewriting one and leaving the other is the live-document divergence § Approach names. **What stays:** a conditional branch inside a gate script, and a state-table row that describes one, remains a true statement about what the script does, so neither is edited — only a sentence asserting this repository's present state is. The build entry point is in the comment-reference gated set, so a rewritten comment there may name the manifest's file name (measured safe) but no repository path under a crate directory, and — per § *What the gates will read afterwards* — no `core::` path either. | `Makefile` (guard block and § file-size band comment), `ai-docs/code-style.md` (§ File size), `AGENTS.md`, `ai-docs/claude-tools-hierarchy.md` (§ CI), `ai-docs/scripts/import_guard.py`, `ai-docs/scripts/comment_refs.py`, `.githooks/coverage-ratchet.sh` | 1 |
 | 3 | The cargo ecosystem returns to Dependabot: add the cargo entry at the repository root with the weekly cadence, the open-pull-request limit and the commit prefix the propagation row fixes, and drop the comment that explains its absence; propagate to the triage skill's preamble and the tool inventory's Dependabot section; retire the propagation row itself, whose trigger this pull request discharges and whose claim it falsifies. The configuration file is itself in the comment-reference gated set, so any comment left in it obeys the same reference ban as a Rust one — no markdown path, no section sign, no repository path. | `.github/dependabot.yml`, `.claude/skills/dependabot-pr/SKILL.md` (§ preamble), `ai-docs/claude-tools-hierarchy.md` (§ Dependabot), `ai-docs/propagation-groups.md` | 1 |
-| 4 | Record the crate-naming rule (D1) as a project key decision, in the page's own shape — decision, why, consequence, source — under § Repository and process, numbered after the last row the page carries. | `ai-docs/key-decisions.md` | 1 |
+| 4 | Record the crate-naming rule (D1) as a project key decision, in the page's own shape — decision, why, consequence, source — under § Repository and process, numbered after the last row the page carries. The *consequence* field carries the measured comment-gate constraints the directory/package divergence creates (§ *What the gates will read afterwards*), since they are what a later crate author inherits and what the page exists to stop them re-litigating; the *source* field names the owner's round-2 answer, not this design. | `ai-docs/key-decisions.md` | 1 |
 
 ## Handoff plan
 
@@ -247,14 +330,23 @@ later one reads the earlier one's result; neither section is the other's.
   tail rather than trusting the first list; any newly revealed class outside this design's contract
   is surfaced to the orchestrator rather than absorbed.
 - **The sweep for statements of the empty-workspace era is a prose sweep, and prose hides an
-  encoding.** The enumeration in subtasks 2 and 3 was built from several simple case-insensitive
-  patterns rather than one alternation, across English and Russian and across the assertion and the
-  printf spellings
-  `[measured baabbb6 · for p in 'first crate' 'while the workspace' 'no workspace' 'nothing is in it' …; do grep -rn -i -- "$p" . ; done → the sites subtasks 2 and 3 name, and no other outside ai-docs/plans and tmp]`.
-  Mitigation: subtask 2 re-runs the same sweep after its edits and reads the residue; a hit left in a
-  history surface is left alone by design
-  `[measured baabbb6:AGENTS.md § Propagation Rule · grep -n 'When the change propagates a' AGENTS.md → 310: step 4 sweeps the user-facing documents and leaves the history surfaces untouched]`
-  `[derived → AC4]`.
+  encoding — round 1 proved it by missing a site.** The enumeration was built from several simple
+  case-insensitive patterns rather than one alternation, across English and Russian and across the
+  assertion and the printf spellings
+  `[measured baabbb6 · for p in 'first crate' 'while the workspace' 'no workspace' 'nothing is in it' …; do grep -rn -i -- "$p" . ; done → the sites subtasks 2 and 3 name, and no other outside ai-docs/plans and tmp]`,
+  and that set still missed the file-size bands, which say *the tree holds no crate* in the bands'
+  own vocabulary and in none of those patterns' words. **The pattern set subtask 2 re-runs is
+  therefore the union of the guard/era vocabulary and the bands' vocabulary** — the wording above, plus
+  `'measured against this tree'`, `'real distribution'`, `'once crates exist'` — which is what
+  reaches both twins
+  `[measured 0b2bc15 · the widened per-pattern sweep with .git, tmp and ai-docs/plans excluded → Makefile:39-41 and ai-docs/code-style.md:90 for the bands' vocabulary, and no other live site; the constructed control string was matched, so the pattern ran]`.
+  Mitigation: subtask 2 re-runs the **widened** set after its edits and reads the residue rather than
+  its emptiness. A residual hit is correct and stays where it is a hit in a history surface, which
+  the propagation rule leaves untouched by design
+  `[measured baabbb6:AGENTS.md § Propagation Rule · grep -n 'When the change propagates a' AGENTS.md → 310: step 4 sweeps the user-facing documents and leaves the history surfaces untouched]`,
+  and a hit in `.claude/**` that is *rule text about* truncating or skipping gates rather than a
+  statement of this repository's workspace state — that corpus stays **in the sweep's scope and out
+  of its finding set**, and a hit there is read before it is judged `[derived → AC4]`.
 - **Deleting the manifest guard makes a broken tree loud rather than green**, which is the point, but
   it also means a machine without the toolchain now fails the aggregate instead of skipping it. That
   is the intended direction and matches the project's own rule that a gate which could not run is not
@@ -262,12 +354,18 @@ later one reads the earlier one's result; neither section is the other's.
   subtask 2 rewrites `[derived → AC3]`.
 - **A doc comment is the one place in the new sources that can fail a gate**, through the reference
   ban or through rustdoc's denied warnings. Mitigation: each crate comment states its own remit and
-  names no path, no section, no issue number, no URL and no other member's qualified symbol; the
-  documentation gate is part of the aggregate run that subtask 1 must pass `[derived → AC1]`.
-- **The executable names are a spec-fixed contract that a manifest rename would break silently** —
-  nothing in the tree asserts them today. Mitigation: § Test Design names the command that reads the
-  built target names back out of the workspace metadata, and it is run as part of subtask 1's
-  verification `[derived → AC2]`.
+  names no path, no section, no issue number, no URL and no other member's qualified symbol — and,
+  per the measured constraints of § *What the gates will read afterwards*, no `core::` path and no
+  package-qualified form of its own crate's symbol either; the documentation gate is part of the
+  aggregate run that subtask 1 must pass `[derived → AC1]`.
+- **The executable names are a spec-fixed contract that a manifest rename would break silently.**
+  The corpus writes them in prose — the structure block, the storage page's migration rule, the
+  command-line page's task heading, the build-and-deploy rows
+  `[measured 0b2bc15 · grep -rn 'reader-' docs/ → `reader-cli` and `reader-migrate` in docs/ARCHITECTURE.md, docs/03-storage.md, docs/09-build-and-deploy.md and docs/11-core-api-and-cli.md; a constructed control string "reader-x" written to a scratch file was matched, so the pattern ran]` —
+  but prose is not a gate, and after this task the names live in a manifest field that a refactor can
+  rename without any check objecting. Mitigation: § Test Design names the command that reads the built
+  target names back out of the workspace metadata, and it is run as part of subtask 1's verification
+  `[derived → AC2]`.
 
 ## Test Design
 
@@ -310,9 +408,18 @@ against.
     printed. The instrument is checked in its red direction first: the same pattern is run against
     the pre-change file (`git show HEAD:Makefile`) and must match there, or the clean result is
     evidence about the pattern `[derived → AC3]`.
-  - *No live statement of the era survives* — re-run the multi-pattern sweep of § Risks, in both
-    languages, and read every residual hit: a hit in a history surface is correct and stays; a hit in
-    a live document or script is a finding `[derived → AC4]`.
+  - *No live statement of the era survives* — re-run the **widened** multi-pattern sweep of § Risks
+    (the guard/era vocabulary **and** the file-size bands' vocabulary), in both languages, and read
+    every residual hit rather than its emptiness: a hit in a history surface is correct and stays; a
+    hit in `.claude/**` that is rule text about truncating or skipping gates is correct and stays; a
+    hit in any other live document or script is a finding `[derived → AC4]`.
+  - *The two file-size band sentences agree* — after the edits, read the build entry point's band
+    comment and the code-style reference's § File size paragraph **side by side** and confirm they
+    state the same judgement about the same trigger, and that neither band value moved. This is the
+    scenario the round-1 design had no test for, which is why the divergence was only caught in
+    review. The build entry point's half is AC4's; the code-style half is the propagation AC4's edit
+    triggers, so the scenario's verdict is *agreement between the two*, not either one alone
+    `[derived → AC4]`.
   - *The edited scripts still run* — the shell gate over the changed script, and the regression
     suites that drive the edited modules, since a docstring edit that breaks a module breaks its gate
     `[derived → AC3]`.
@@ -344,23 +451,33 @@ against.
 
 ## Open questions
 
-- **The package names are the corpus's one silence, and D1 fills it — confirm rather than assume.**
-  `docs/ARCHITECTURE.md` and `docs/backend/ARCHITECTURE.md` name the crates by role and fix the
-  executable names
-  `[measured baabbb6:docs/backend/ARCHITECTURE.md:3 · sed -n '3p' docs/backend/ARCHITECTURE.md → "Модули ниже живут в крейте `core`, кроме `http/` и `ws/`, которые составляют крейт `server`."]`;
-  neither states a package name. D1 proposes
-  `reader-`-prefixed package names on the measured ground that a member packaged as `core` shadows
-  the standard library's `core` in every dependent, and the directories keep the corpus's names.
-  Since the corpus is DECISIONS and this is a question it leaves open, the owner's confirmation is
-  wanted before subtask 1 lands — not a redesign of the corpus, but a naming the corpus did not make.
-- **The propagation table's row says "in the same commit" where the standing rule says "in the same
-  pull request".** D10 follows the standing rule, on the measured ground that Dependabot only ever
-  reads the default branch, so the stricter wording constrains nothing real and would force a
-  mixed-change-type group. Subtask 3 retires that row as discharged, so the discrepancy disappears
-  with it; if the orchestrator would rather keep the stricter wording as a general pattern for
-  future one-shot triggers, that belongs in `ai-docs/harness-gaps.md` and is the orchestrator's to
-  route, not this design's to write.
+**Nothing is open. Every question round 1 raised was put to the owner and answered in round 2, and
+each is now a design decision carrying the owner's words rather than a question.** They are recorded
+below with their disposition so a later reader does not reopen them.
+
+- **Package names — CLOSED.** The corpus names the crates by role at every site that names them and
+  never by package; D1 proposed the `reader-` prefix on the measured ground that a member packaged as
+  `core` shadows the standard library's `core` in every dependent. The owner answered **"reader-\* у
+  всех"**, with the directories fixed in the same exchange. Folded into D1, which now cites the whole
+  corpus set the decision rules over — the repository-structure block, the backend module map, the
+  build-and-deploy task row and the core-API page's opening row — rather than the structure block
+  alone. No spec row is added for it.
+- **The propagation table's "same commit" versus the standing rule's "same pull request" — CLOSED.**
+  The owner answered **"Снять строку"**: the project follows the AXIOM and the row is retired as
+  discharged. Folded into D10; subtask 3 removes the row. The owner wanted no `harness-gaps.md`
+  entry, so none is written.
 - **No spec row was found to prescribe a mechanism this design would otherwise choose differently.**
   Scope 3 names `[workspace.dependencies]`, but that is the owner's own wording in the issue body as
   the interview state file persists it, anchored as such in the spec — not a spec-side choice of how,
-  so no `SPEC-REMIT` tag is raised.
+  so no `SPEC-REMIT` tag is raised. AC4's round-1 trailer, which restated a standing rule, was struck
+  by the spec amendment and the anchor moved to the owner's answer, so that `SPEC-REMIT` is
+  discharged too; the work AC4 implies is unchanged, because the Propagation Rule binds either way.
+
+**One follow-up is routed, not taken.** `comment_refs.py`'s crate-symbol class keys its own-crate
+exemption on the **directory** name while putting both the directory token and the package token in
+the name set — so under D1 a crate's own package-qualified symbol is reported inside its own crate,
+and `core::` is unwritable in any gated comment outside `crates/core` (both measured, § *What the
+gates will read afterwards*). Whether the gate should bridge directory name to package name is a
+harness change with its own blast radius across every gated comment in the tree; it is out of this
+task's contract, it blocks nothing here, and it is the orchestrator's to route — the constraints
+themselves are recorded in D12's key-decisions row so no later crate author meets them unwarned.
