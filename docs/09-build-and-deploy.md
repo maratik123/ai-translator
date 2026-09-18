@@ -4,11 +4,11 @@
 - [ ] Workspace `Cargo.toml` с `shared`, `core`, `cli`, `server`, `migrate`; `frontend` с `pnpm`.
 - [ ] `just`/Makefile: `gen-types` (cargo test в shared), `dev` (backend с `ServeDir` + `vite dev` с proxy на `/ws` и `/api`), `build` (vite build → rust-embed → cargo build --release).
 - [ ] CI (GitHub Actions): clippy, тесты, проверка что `gen-types` не дает диффа, сборка фронта.
-- [ ] `deploy/reader.service` (systemd user): `ExecStart=%h/.local/bin/reader --config %h/.config/reader/config.toml`, `After=llama-server.service`.
-- [ ] `deploy/llama-server.service` и `deploy/llama-embed.service` с командными строками из `05-llm-client.md`, `Restart=on-failure`. Устройство прибивать явно (`-dev ROCm0`): при сборке с двумя бэкендами одна и та же карта видна дважды, и без `-dev` llama.cpp выделит память под неё дважды.
-- [ ] Postgres: роль `reader`, БД `reader`, `CREATE EXTENSION vector` от суперпользователя (или разрешить роли). Миграции через `reader-migrate` (отдельный бинарь, `ExecStartPre` в юните сервера), сервер и CLI только проверяют версию схемы.
-- [ ] Тесты требуют Podman socket (`systemctl --user enable --now podman.socket`); `just test` выставляет `DOCKER_HOST`.
-- [ ] Логи через `journalctl --user -u reader`.
+- [ ] `deploy/`: **примеры** запуска, а не предписание. Командные строки обоих инстансов `llama-server` из `05-llm-client.md` и образец конфига приложения. Чем их запускать — юнитом init-системы, скриптом или руками в соседней консоли — решает пользователь; проект не зависит ни от одной init-системы (на машине разработки OpenRC).
+- [ ] Порядок запуска — забота пользователя: приложение обращается к `llama-server` по адресу из конфига и переживает его недоступность (health-check и `LlmStatus` из `05-llm-client.md`), а не требует, чтобы модель уже была поднята. Устройство в командной строке прибивать явно (`-dev ROCm0`): при сборке с двумя бэкендами одна и та же карта видна дважды, и без `-dev` llama.cpp выделит память под неё дважды.
+- [ ] Postgres: роль `reader`, БД `reader`, `CREATE EXTENSION vector` от суперпользователя (или разрешить роли). Миграции через `reader-migrate` (отдельный бинарь, запускается до приложения), сервер и CLI только проверяют версию схемы.
+- [ ] Тесты требуют слушающий Podman socket; как он поднят — дело пользователя и его init-системы. Проверено на машине разработки: `/run/user/$UID/podman/podman.sock`. `just test` выставляет `DOCKER_HOST` на этот путь.
+- [ ] Логи пишутся в stdout/stderr через `tracing`; как их собирать и ротировать, решает то, что запускает процесс.
 - [ ] Доступ с планшета: `host = "0.0.0.0"`, адрес компа в локальной сети, при необходимости `avahi` для `<host>.local`.
 
 ## Окружение (RX 9070 XT 16 ГБ + Ryzen 7 5800X + 32 ГБ DDR4)
