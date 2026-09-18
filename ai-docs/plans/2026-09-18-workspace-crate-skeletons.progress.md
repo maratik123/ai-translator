@@ -8,7 +8,7 @@ _Updated: 2026-09-18 20:30_
 **Last build:** PASS — `make verify` green at 0421983
 **Issue:** #10
 **Spec:** ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md
-**current_step:** Step 9 — Verify (ALL PASS)
+**current_step:** Step 9.5 — docs updated
 **last_passed_gate:** `make verify` | 2026-09-18T18:35:13Z | 0421983
 **entry_args:** 10
 
@@ -46,6 +46,7 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 8 (Group B close)**: the widened sweep was run a third time after all three subtasks. No live document or script still states the empty-workspace era: every residual hit is a conditional printf, a state-table row, a docstring governed by its own `While`/`Once`, `.claude/**` rule text, or a rewritten sentence matched on a surviving pattern word. AC4 is discharged.
 - **Step 8 (subtask 3)**: the CI paths filter needs no edit for this change — its `commentrefs` key already lists `**/*.yml`, so the configuration file reaches the comment-reference job, and the two documents are under the harness key's `.claude/**` and `ai-docs/**`.
 - **Step 9**: every acceptance criterion was re-verified by the orchestrator's own command rather than from a delegate's summary; the AC4 sweep ran over 150 tracked live files with each of its twelve patterns matched against a constructed control first, and its three surviving hits are the conditional statements the design rules stay. No panic-index row was added and no domain invariant is touched — the diff's only domain word is prose inside a remit comment.
+- **Step 9.5**: `ai-docs/context.md` is left unedited on purpose — its § Status defers the crate layout to the workspace manifest and states that the page fixes the shape rather than the progress, so recording this task there would contradict the page's own contract and go stale; `README.md` makes no claim about cargo, crates or the workspace, so nothing there is falsified.
 
 ## GO notes
 
