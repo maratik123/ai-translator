@@ -69,6 +69,7 @@
 /crates/migrate     reader-migrate: единственное место, где накатываются миграции
 /frontend           Vite + React + TS, src/generated/ из ts-rs
 /docs               эта документация
+/testdata/models    мини-модели для тестов: <org>/<model>/<файлы>, раскладка как в models/
 /deploy             примеры запуска: командные строки llama-server, пример конфига
 /tools              замеры вне продукта: emb-eval (выбор эмбеддинг-модели)
 ```

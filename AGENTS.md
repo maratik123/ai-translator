@@ -25,9 +25,9 @@
 | CPU | Ryzen 7 5800X, Zen 3, AVX2, без AVX512; DDR4 |
 | Postgres | 18.6 + pgvector 0.8.6 |
 | БД | локальный Postgres, база `reader`, расширение `vector` создано; DSN в `DATABASE_URL` |
-| Тесты | testcontainers через Podman socket, образ `pgvector/pgvector:pg18` |
+| Тесты | testcontainers через Podman socket, образы `pgvector/pgvector:pg18` и `ghcr.io/ggml-org/llama.cpp:server` |
 
-`models/` и `examples/` в `.gitignore` — файлы только локальные.
+`models/` и `examples/` в `.gitignore` — файлы только локальные. Мини-модели для тестов — другое: они лежат в `testdata/models/` и **закоммичены**, вместе с лицензиями и описанием происхождения. Раскладка внутри та же, что в `models/`: `<organization>/<model_name>/<файлы>`.
 
 ## Запуск моделей
 
@@ -142,7 +142,7 @@ shellcheck <script>.sh                                  # required gate for any 
 
 > **While the workspace is empty, every cargo gate skips itself loudly and exits 0** — there is no `Cargo.toml` at the root until the first crate lands, and a gate that cannot run says so on stderr rather than passing in silence. The skips disappear with the commit that creates the workspace; nothing has to be switched on by hand.
 
-> **The test suite provisions its own database.** A database-backed test starts a `pgvector` container through testcontainers over the Podman socket and drops it on cleanup. `DATABASE_URL` is the application's connection, never the suite's — a test that reads it runs against the developer's own data. A machine with no container runtime is told so by the failing test, not by a silent skip.
+> **The test suite provisions its own database.** A database-backed test starts a `pgvector` container through testcontainers over the Podman socket and drops it on cleanup. `DATABASE_URL` is the application's connection, never the suite's — a test that reads it runs against the developer's own data. A machine with no container runtime is told so by the failing test, not by a silent skip. **The model client's conformance tests are built the same way** — they start `llama.cpp:server` on CPU with the committed miniature models under `testdata/models/`, so a container runtime is not the database's business alone.
 
 > **AXIOM — `actionlint` MUST pass before `git add` on any modified `.github/workflows/*.yml`; `shellcheck` MUST pass before `git add` on any modified `*.sh`.**
 > Required gates, **same status as `cargo build` and `cargo clippy`.** Never bypass.
