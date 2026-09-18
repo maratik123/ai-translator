@@ -1,5 +1,5 @@
 # Progress: Workspace and crate skeletons — ACTIVE
-_Updated: 2026-09-18 20:05_
+_Updated: 2026-09-18 20:30_
 
 > Read THIS FIRST → ready to continue. No need to re-read the codebase.
 
@@ -8,20 +8,20 @@ _Updated: 2026-09-18 20:05_
 **Last build:** green — `make verify` (the whole aggregate) after subtask 2's edits; subtask 3 touched no Rust path
 **Issue:** #10
 **Spec:** ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md
-**current_step:** Step 8 — subtask 3 of 4 complete (Group B in progress)
-**last_passed_gate:** `make comment-refs` (by path over the changed configuration and over the whole tracked set) plus the relative-markdown-link check, 84 documents and 207 links, none broken
+**current_step:** Step 8 — subtask 4 of 4 complete; Group B done, both groups returned
+**last_passed_gate:** the 23 harness guard regression suites and the six standalone harness checkers, all green, plus the relative-markdown-link check over 84 documents and 207 links
 **entry_args:** 10
 
 ## Next action
 
-**Do this immediately:** continue Group B with subtask 4 (the crate-naming key decision).
+**Do this immediately:** Step 8 is complete. Push the branch, then run Step 9 (verify) and Step 10 (self-review) before Step 12 opens the pull request.
 
 ## Subtasks
 
 - [x] 1. The workspace manifest and its skeleton members (Group A, code, code-writer/sonnet) — commit d8cacd8
 - [x] 2. Retire the empty-workspace guard and every live statement of it (Group B)
 - [x] 3. The cargo ecosystem returns to Dependabot (Group B)
-- [ ] 4. Record the crate-naming rule (D1) as a project key decision (Group B)  ← CURRENT
+- [x] 4. Record the crate-naming rule (D1) as a project key decision (Group B)
 
 ## Decisions log
 
@@ -41,6 +41,9 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 8 (subtask 3)**: the YAML parser was checked in its red direction first — a scratch copy of the configuration with the ecosystem entry indented one column short raised `yaml.scanner.ScannerError` — and only then was the edited file's clean parse read as a pass.
 - **Step 8 (subtask 3)**: each field of the cargo entry was read back against a source the rewrite cannot move — the cadence and the open-pull-request limit against the sibling `github-actions` entry in the parsed file itself (both equal), and the `build` commit prefix against the pre-change tool-inventory section taken from the merge base `ae76456`. The ecosystem identifier `cargo` and the four option keys were confirmed against GitHub's own options reference in this session rather than from the design's tag.
 - **Step 8 (subtask 3)**: after the propagation row was removed, the three sites that pointed at it — the configuration comment, the skill preamble and the tool-inventory section, all three inside this subtask's own file set — return no hit, with the sweep's pattern matched against a constructed control line first. No gate script names either the configuration file or the propagation page: a sweep of the 47 shell, Python and workflow files under the harness directories returns nothing for either name.
+- **Step 8 (subtask 4)**: KD-19 was appended under § Repository and process after KD-18, in the page's own decision/why/consequence/source shape; its consequence field carries both measured comment-gate constraints the directory/package divergence creates. The row's source is backticked prose and holds no markdown link, no live `ai-docs/plans/` path and no interview-state-file path — it names the post-retirement design path — which was asserted mechanically rather than read by eye.
+- **Step 8 (subtask 4)**: the relative-link check was re-run after the edit over 84 documents and 207 relative links with none broken; the corpus size was printed before the verdict so that the clean result is about the documents and not about an enumeration that reached nothing.
+- **Step 8 (Group B close)**: the widened sweep was run a third time after all three subtasks. No live document or script still states the empty-workspace era: every residual hit is a conditional printf, a state-table row, a docstring governed by its own `While`/`Once`, `.claude/**` rule text, or a rewritten sentence matched on a surviving pattern word. AC4 is discharged.
 - **Step 8 (subtask 3)**: the CI paths filter needs no edit for this change — its `commentrefs` key already lists `**/*.yml`, so the configuration file reaches the comment-reference job, and the two documents are under the harness key's `.claude/**` and `ai-docs/**`.
 
 ## GO notes
@@ -72,7 +75,7 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 | AC1 | NOT_TESTED |
 | AC2 | NOT_TESTED |
 | AC3 | PASS — `make verify` ran every gate and its capture carries no skip line, while the pre-change entry point's capture in a manifest-less scratch directory does |
-| AC4 | NOT_TESTED |
+| AC4 | PASS — the widened four-vocabulary sweep, re-run after every subtask, leaves no live document or script asserting the era; each residual hit was read and classified |
 | AC5 | NOT_TESTED |
 
 ## Review register
@@ -98,3 +101,4 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - `.claude/skills/dependabot-pr/SKILL.md` (§ preamble)
 - `ai-docs/claude-tools-hierarchy.md` (§ Dependabot — a second, separate edit from subtask 2's § CI)
 - `ai-docs/propagation-groups.md` (the discharged workspace/Dependabot row removed)
+- `ai-docs/key-decisions.md` (KD-19 — the crate-naming rule)
