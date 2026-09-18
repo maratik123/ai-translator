@@ -1,0 +1,18 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/shared",
+    "crates/core",
+    "crates/cli",
+    "crates/migrate",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+# A dependency is added here only once a member's code compiles against it;
+# nothing does yet, so the table is empty.
