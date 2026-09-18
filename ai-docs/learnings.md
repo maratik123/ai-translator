@@ -24,3 +24,10 @@ An entry is a conduct correction or a validation of this project's own runs; a d
 **at:** `chore/testdata-models` @ b65356c
 **Kind:** correction
 **Escalated?** no
+
+### 2026-09-18 — search — a line number attributed by position in a probe's output instead of read from it
+**What happened:** Verifying a design-review finding that a `[measured …:22-24]` tag was off by one, I ran `sed -n '21,24p' .githooks/coverage-ratchet.sh`, saw the quoted clause among the four printed lines, and told the owner the finding held and the clause begins at line 21. It begins at 22; line 21 is a bare `#`. `sed -n` prints no line numbers, so the attribution was inferred from the position of the line in the output rather than read from the instrument — and the range I was handed by the finding was exactly the one that makes the inference come out wrong. The `design-writer` delegate refused the fold-in, re-resolved with `grep -n 'THE TOLERANCE IS ZERO'` → `22:`, and was right; I had reported the reviewer's error onward as independently confirmed.
+**Rule:** When the claim under test **is** a coordinate, the probe must print the coordinate — `grep -n` for the clause's own words, or `awk 'NR>=a && NR<=b {printf "%d|%s\n", NR, $0}'` — never a range printer whose output the reader numbers by counting. Reaching for the range from the finding also anchors the probe to the claim it is supposed to test independently; derive the range from a search for the content instead. This is the ast-index rule *assert that the probe LANDED where the instrument looks, and report where that is*, in the case where where-it-landed is the whole question.
+**at:** e1f8a4d
+**Kind:** correction
+**Escalated?** no
