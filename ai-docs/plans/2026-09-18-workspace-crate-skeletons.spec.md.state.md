@@ -32,7 +32,7 @@ gh_issue:
   issue_body_status: current
 round_cap: 4
 questions_per_round_cap: 3
-round: 2
+round: 3
 agent_id: a45a288bba5f92528
 prior_qa:
   - round: 1
@@ -47,4 +47,7 @@ prior_qa:
   - round: 2
     question: "`ai-docs/propagation-groups.md` требует пропагацию Dependabot-строки «в том же коммите», а AGENTS.md § Propagation Rule — «в том же PR». Проект идёт за AXIOM и снимает строку как отработанную. (→ design amendment via design-writer)"
     answer: "Снять строку"
+  - round: 2
+    question: "AC4 сейчас заканчивается хвостом «… the class is every site whose claim this diff falsifies, per AGENTS.md § Propagation Rule step 4». Ревьюер говорит: это пересказ стоячего правила, а не критерий приёмки. Решение ваше — я его не принимаю."
+    answer: "Переформулировать"
 ```
