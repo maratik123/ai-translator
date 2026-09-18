@@ -50,4 +50,4 @@ The rules that outrank convenience. Each one is enforced by review — the revie
 
 **INV-17 — A credential never enters a tracked file.** The database connection lives in the environment variable the process reads; a document names the variable, never a value. This is enforced by a `PostToolUse` hook over connection strings that carry a password, and the repository has already had one such line removed from a tracked document. If a real credential reaches a commit, it is rotated — editing it out of the working tree does not unpublish it.
 
-**INV-18 — Model weights and book texts stay out of the repository.** They are local, ignored, and named by path rather than committed.
+**INV-18 — Production model weights and book texts stay out of the repository.** They are local, ignored, and named by path rather than committed. The one exception is deliberate and bounded: the miniature models the test suite runs against are committed under `testdata/models/`, with their licences and provenance beside them. A weight file is committed only when it is small, permissively licensed, and exists so that a test does not need the network.

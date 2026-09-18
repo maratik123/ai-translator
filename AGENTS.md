@@ -117,7 +117,7 @@ Honour-system rules (no machine check; still binding):
 - **DENY:** a real credential — a connection string with a password, an API key, a token — in any tracked file, including a test fixture, an example, a commit message and a pull-request body. The database connection lives in the environment variable the process reads; a document names the variable, never a value. A leaked credential is rotated, not edited out of history.
 - **ASK:** any tool not allow-listed in `settings.json`; if denied, suggest an alternative.
 
-On session start: read `.gitignore`, treat matched paths as a read blacklist. Model weights and book texts are local and ignored — never read them into a durable artefact.
+On session start: read `.gitignore`, treat matched paths as a read blacklist. Production model weights and book texts are local and ignored — never read them into a durable artefact. The miniature models under `testdata/models/` are tracked and are not covered by that blacklist.
 
 ## Build & Test
 

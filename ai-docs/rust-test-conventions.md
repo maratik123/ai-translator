@@ -73,4 +73,4 @@ A test may `unwrap` freely: a panic there is a failing test, which is the intend
 - **No assertion on a formatted error string** where a typed variant exists.
 - **No sleep-based synchronisation.**
 - **No test that depends on another test's rows, files or order.**
-- **No fixture pulled from a book text or a model weight in the repository** — neither is tracked ([`domain-invariants.md`](domain-invariants.md) INV-18); a fixture ships a short excerpt it owns.
+- **No fixture pulled from a book text or a production model weight** — neither is tracked ([`domain-invariants.md`](domain-invariants.md) INV-18); a fixture ships a short excerpt it owns. The miniature models under `testdata/models/` are the exception the same invariant carves out: they are tracked precisely so the conformance suite can run against them offline.
