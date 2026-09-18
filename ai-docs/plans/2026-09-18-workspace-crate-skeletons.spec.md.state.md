@@ -32,7 +32,13 @@ gh_issue:
   issue_body_status: current
 round_cap: 4
 questions_per_round_cap: 3
-round: 1
-agent_id: null
-prior_qa: []
+round: 2
+agent_id: a45a288bba5f92528
+prior_qa:
+  - round: 1
+    question: "Входит ли пятый крейт `crates/server` в воркспейс этой задачей? Текст задачи перечисляет четыре члена, а оба документа, на которые она ссылается, — пять."
+    answer: "Четыре"
+  - round: 1
+    question: "Насколько широкий набор общих зависимостей объявляет воркспейс в этой задаче?"
+    answer: "Минимум"
 ```
