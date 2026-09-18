@@ -33,6 +33,7 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 8 (subtask 1, code-writer)**: crate-level `//!` comments were written as plain remit prose with no crate-qualified symbol, no `core::`-shaped path and no repository/markdown/URL reference, so the own-crate-exemption asymmetry recorded in the design's § *What the gates will read afterwards* is not exercised by this commit; `check-comment-refs.sh` was run by explicit path before `git add` and again `--staged` after, both green, matching § Risks' mitigation for the whole-tree-lexical-gate risk.
 - **Step 8 (subtask 1, code-writer)**: `cargo metadata --format-version 1 --no-deps` was read back after the build and the two binary targets are named `reader-cli` and `reader-migrate`, matching the spec-fixed executable names (AC2), with no `[[bin]]` block in either manifest (D3).
 - **Step 8 (subtask 1, code-writer)**: the pre-commit hook found no `ai-docs/coverage-ratchet.txt` and initialised it at `0.00` in the same commit (d8cacd8); the subsequent `make cover-ratchet` check-only run reported a comparison ("0.00% holds against 0.00%"), not a missing-file block and not a no-executable-lines skip, confirming the two binary `main` bodies put lines into the summary per D8.
+- **Step 8**: Group A returned and the branch was pushed to `origin` as the binding visibility point; the orchestrator re-validated branch, base_commit and tracked-tree cleanliness, and re-ran `cargo build --workspace --all-targets` itself before handing off Group B.
 
 ## GO notes
 
