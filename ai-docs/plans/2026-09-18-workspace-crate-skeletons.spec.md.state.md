@@ -41,4 +41,10 @@ prior_qa:
   - round: 1
     question: "Насколько широкий набор общих зависимостей объявляет воркспейс в этой задаче?"
     answer: "Минимум"
+  - round: 2
+    question: "Имена пакетов — единственное молчание корпуса: `docs/` фиксирует роли и имена бинарей, но имён пакетов не называет. Какие берём? (→ design amendment via design-writer; каталоги в любом случае остаются shared/core/cli/migrate)"
+    answer: "reader-* у всех"
+  - round: 2
+    question: "`ai-docs/propagation-groups.md` требует пропагацию Dependabot-строки «в том же коммите», а AGENTS.md § Propagation Rule — «в том же PR». Проект идёт за AXIOM и снимает строку как отработанную. (→ design amendment via design-writer)"
+    answer: "Снять строку"
 ```
