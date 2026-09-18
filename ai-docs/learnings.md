@@ -38,3 +38,15 @@ An entry is a conduct correction or a validation of this project's own runs; a d
 **at:** 2ddf9de
 **Kind:** correction
 **Escalated?** no
+
+### 2026-09-18 — tooling — `pkill -f` matched the calling shell's own command line
+**What happened:** To stop a slow background sweep I ran `pkill -f` with a pattern naming the script. The pattern matched the very Bash invocation that carried it, so the command killed its own process tree and returned exit 144; the background task was reported as failed rather than stopped.
+**Rule:** `pkill -f <pattern>` matches every process whose full command line contains the pattern — including the shell running the `pkill`. The project already records this failure mode for one specific target, but it is a property of `-f`, not of that target: kill by exact process name (`pkill -x <name>`), by recorded PID, or with the flow's own stop control, and never with a pattern that the issuing command line itself contains.
+**Kind:** correction
+**Escalated?** no
+
+### 2026-09-18 — tooling — read a gate's result through a truncating filter instead of a captured log
+**What happened:** Reading the coverage ratchet's result at the end of a subtask, I ran the gate target and filtered its output through a line-truncating pager in the same pipeline. A `PreToolUse` hook refused the command. Had it run, the recorded exit status would have been the filter's — always zero — so a red ratchet would have been recorded as green.
+**Rule:** A gate whose exit status is load-bearing is never piped. Redirect it to a file under the scratch directory, branch on the gate's own status, and read the saved log afterwards. This binds a one-line convenience read at the end of a turn exactly as it binds the deliberate gate run at the start of one — the shape is the hazard, not the intent. A second consequence learned in the same turn: the hook matches command TEXT, so a later command that merely quotes such a pipeline is refused too; describe the shape in prose rather than reproducing it.
+**Kind:** correction
+**Escalated?** no
