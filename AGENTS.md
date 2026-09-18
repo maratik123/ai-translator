@@ -27,7 +27,7 @@
 | БД | локальный Postgres, база `reader`, расширение `vector` создано; DSN в `DATABASE_URL` |
 | Тесты | testcontainers через Podman socket, образы `pgvector/pgvector:pg18` и `ghcr.io/ggml-org/llama.cpp:server` |
 
-`models/` и `examples/` в `.gitignore` — файлы только локальные. Мини-модели для тестов — другое: они лежат в `testdata/models/` и **закоммичены**, вместе с лицензиями и описанием происхождения.
+`models/` и `examples/` в `.gitignore` — файлы только локальные. Мини-модели для тестов — другое: они лежат в `testdata/models/` и **закоммичены**, вместе с лицензиями и описанием происхождения. Раскладка внутри та же, что в `models/`: `<organization>/<model_name>/<файлы>`.
 
 ## Запуск моделей
 
