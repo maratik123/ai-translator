@@ -1,0 +1,37 @@
+Covers: gte-small-q8_0.gguf in this directory.
+
+This file is redistributed byte-for-byte from
+https://huggingface.co/ggml-org/gte-small-Q8_0-GGUF, a Q8_0 GGUF quantization
+of https://huggingface.co/thenlper/gte-small.
+
+Both repositories declare their licence in the model-card metadata field
+`license: mit`, and neither ships a LICENSE file, so neither source publishes a
+copyright line of its own. The card of the original states: "The GTE models are
+trained by Alibaba DAMO Academy." The holder named below therefore rests on that
+statement and on the accompanying paper (Li et al., "Towards General Text
+Embeddings with Multi-stage Contrastive Learning", arXiv:2308.03281, 2023), not
+on a licence text supplied by either repository.
+
+----------------------------------------------------------------------
+
+MIT License
+
+Copyright (c) 2023 Alibaba DAMO Academy (the authors of the GTE models)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
