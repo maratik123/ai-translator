@@ -31,3 +31,10 @@ An entry is a conduct correction or a validation of this project's own runs; a d
 **at:** e1f8a4d
 **Kind:** correction
 **Escalated?** no
+
+### 2026-09-18 — process — an instruction file's size measured while deciding how to read it
+**What happened:** About to read the handoff protocol before spawning the first Step-8 group, I ran `wc -l` on a skill file together with `cat`, to size the read before making it. A `PreToolUse` hook refused the command: the size of `AGENTS.md`, `CLAUDE.md` and `.claude/{skills,agents,rules}/**.md` belongs to `/ai-audit` alone, and every other flow is forbidden to measure it, report it or plan around it — **including for the purpose of deciding how to read a file**, which is exactly the purpose I had. The plain `cat` that followed was always the right call and cost nothing extra.
+**Rule:** Never size an instruction file. Read it with `cat`, or navigate it with `sed -n` ranges and `grep -n` for structure. "I only wanted to know how much to read" is the motive the rule names and refuses, not an exemption from it — a habit of sizing a file before opening it is correct for a data file and prohibited for this class.
+**at:** 2ddf9de
+**Kind:** correction
+**Escalated?** no
