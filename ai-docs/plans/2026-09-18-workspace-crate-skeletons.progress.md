@@ -1,27 +1,27 @@
 # Progress: Workspace and crate skeletons — ACTIVE
-_Updated: 2026-09-18 19:40_
+_Updated: 2026-09-18 20:05_
 
 > Read THIS FIRST → ready to continue. No need to re-read the codebase.
 
 **Branch:** feat/2026-09-18-workspace-crate-skeletons
 **base_commit:** 5fd1a041c804f2d658cd7832b4656438cfa4b617
-**Last build:** green — `make verify` (the whole aggregate) after subtask 2's edits
+**Last build:** green — `make verify` (the whole aggregate) after subtask 2's edits; subtask 3 touched no Rust path
 **Issue:** #10
 **Spec:** ai-docs/plans/2026-09-18-workspace-crate-skeletons.spec.md
-**current_step:** Step 8 — subtask 2 of 4 complete (Group B in progress)
-**last_passed_gate:** `make verify` — every gate ran and none printed a skip line; plus `make cover-ratchet`, `shellcheck`, the pre-commit dispatch suite and the script-shape checker
+**current_step:** Step 8 — subtask 3 of 4 complete (Group B in progress)
+**last_passed_gate:** `make comment-refs` (by path over the changed configuration and over the whole tracked set) plus the relative-markdown-link check, 84 documents and 207 links, none broken
 **entry_args:** 10
 
 ## Next action
 
-**Do this immediately:** continue Group B with subtask 3 (Dependabot's cargo ecosystem).
+**Do this immediately:** continue Group B with subtask 4 (the crate-naming key decision).
 
 ## Subtasks
 
 - [x] 1. The workspace manifest and its skeleton members (Group A, code, code-writer/sonnet) — commit d8cacd8
 - [x] 2. Retire the empty-workspace guard and every live statement of it (Group B)
-- [ ] 3. The cargo ecosystem returns to Dependabot (Group B)  ← CURRENT
-- [ ] 4. Record the crate-naming rule (D1) as a project key decision (Group B)
+- [x] 3. The cargo ecosystem returns to Dependabot (Group B)
+- [ ] 4. Record the crate-naming rule (D1) as a project key decision (Group B)  ← CURRENT
 
 ## Decisions log
 
@@ -38,6 +38,10 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 8 (subtask 2)**: with the guard variable gone, the six cargo recipes were also stripped of their `@` prefix rather than left as `@cargo …` — "the bare gate command" of the design's subtask 2, and the form every non-cargo recipe in the file already used; the echoed command lines are what the `make verify` capture was read for.
 - **Step 8 (subtask 2)**: the widened prose sweep (the union of the four vocabularies § Risks names) was run against a constructed control file first — all twenty patterns matched there — then over the tree before and after the edits; the residue was read line by line and every remaining hit is either a conditional branch/state-table row the design's stay rule keeps, `.claude/**` rule text, or subtask 3's own two sites. A Russian-vocabulary pass and a cardinality control confirming the sweep corpus reaches `docs/` and `README.md` were run as well, and the Russian pass returned no era statement.
 - **Step 8 (subtask 2)**: the comment-reference gate was run by explicit path over the two gated files this subtask edits and again over the whole tracked set, both green, and its red direction was confirmed on a constructed scratch script carrying a markdown path, which the gate reported.
+- **Step 8 (subtask 3)**: the YAML parser was checked in its red direction first — a scratch copy of the configuration with the ecosystem entry indented one column short raised `yaml.scanner.ScannerError` — and only then was the edited file's clean parse read as a pass.
+- **Step 8 (subtask 3)**: each field of the cargo entry was read back against a source the rewrite cannot move — the cadence and the open-pull-request limit against the sibling `github-actions` entry in the parsed file itself (both equal), and the `build` commit prefix against the pre-change tool-inventory section taken from the merge base `ae76456`. The ecosystem identifier `cargo` and the four option keys were confirmed against GitHub's own options reference in this session rather than from the design's tag.
+- **Step 8 (subtask 3)**: after the propagation row was removed, the three sites that pointed at it — the configuration comment, the skill preamble and the tool-inventory section, all three inside this subtask's own file set — return no hit, with the sweep's pattern matched against a constructed control line first. No gate script names either the configuration file or the propagation page: a sweep of the 47 shell, Python and workflow files under the harness directories returns nothing for either name.
+- **Step 8 (subtask 3)**: the CI paths filter needs no edit for this change — its `commentrefs` key already lists `**/*.yml`, so the configuration file reaches the comment-reference job, and the two documents are under the harness key's `.claude/**` and `ai-docs/**`.
 
 ## GO notes
 
@@ -90,3 +94,7 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - `ai-docs/code-style.md` (§ File size — the band comment's twin)
 - `ai-docs/claude-tools-hierarchy.md` (§ CI only)
 - `.githooks/coverage-ratchet.sh` (tolerance header, no-executable-lines branch comment)
+- `.github/dependabot.yml` (cargo entry added, absence comment dropped)
+- `.claude/skills/dependabot-pr/SKILL.md` (§ preamble)
+- `ai-docs/claude-tools-hierarchy.md` (§ Dependabot — a second, separate edit from subtask 2's § CI)
+- `ai-docs/propagation-groups.md` (the discharged workspace/Dependabot row removed)
