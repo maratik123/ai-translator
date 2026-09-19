@@ -62,12 +62,21 @@ fn main() -> std::process::ExitCode {
     ];
 
     let conclusion = libtest_mimic::run(&args, trials);
+    let run_exit_code = conclusion.exit_code();
 
-    runtime
-        .block_on(harness.shutdown())
-        .expect("failed to remove the shared container");
-
-    conclusion.exit_code()
+    // The runner's own verdict is captured above, before teardown, and is
+    // what a clean removal exits with. A removal failure never overwrites
+    // it with a panic — it is reported on stderr and forces a failing exit
+    // status of its own, so a leaked container cannot exit zero even when
+    // every trial passed, and a run the trials already failed keeps failing
+    // rather than having its status replaced.
+    match runtime.block_on(harness.shutdown()) {
+        Ok(()) => run_exit_code,
+        Err(err) => {
+            eprintln!("failed to remove the shared container: {err}");
+            std::process::ExitCode::FAILURE
+        }
+    }
 }
 
 /// Wraps a trial body — an async function taking the shared harness — into a
