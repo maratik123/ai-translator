@@ -240,14 +240,14 @@ After all findings are resolved (`✅ Fixed` or `⚠️ Objected`), run the **fu
 
 ## Step 12 — inbox propagation (detail)
 
-The Step 12 sub-step 5 parser specification lives in a dedicated reference file: **[inbox-propagation.md](inbox-propagation.md)**. It covers the six shape rules (NONE / TABLE / PIPEBULLET3 / PIPEBULLET2 / BOLDBULLET / PLAINBULLET), the unrecognised-shape warning behaviour, the per-row mapping format (one JSON line per item appended to `_inbox.jsonl` — canonical row shape: [`ai-docs/templates/inbox-row.md`](../../../ai-docs/templates/inbox-row.md)), and the file-level dedupe rule against the thematic `.jsonl` files. Load it on demand when implementing or modifying Step 12's propagation logic.
+The Step 12 sub-step 5 parser specification lives in a dedicated reference file: **[inbox-propagation.md](inbox-propagation.md)**. It covers the seven shape rules (NONE / TABLE / PIPEBULLET3 / PIPEBULLET2 / BOLDBULLET / PLAINBULLET / PROSE), their totality over a non-blank body, the per-row mapping format (one JSON line per item appended to `_inbox.jsonl` — canonical row shape: [`ai-docs/templates/inbox-row.md`](../../../ai-docs/templates/inbox-row.md)), and the file-level dedupe rule against the thematic `.jsonl` files. Load it on demand when implementing or modifying Step 12's propagation logic.
 
 **Per-step recap** of the Step 12 inbox-propagation sub-step:
 
 - Run the parser against `ai-docs/plans/done/YYYY-MM-DD-name.spec.md` (and the matching `*.design.md` if it exists).
 - Build the live dedupe set `H`: every `.source_path` value in the thematic `.jsonl` files in `ai-docs/deferred/` — every `*.jsonl` sibling of `_inbox.jsonl` (created by `/triage` as it drains the inbox into topic files; none may exist yet in a fresh repo, in which case `H` is empty), harvested via `jq -r '.source_path' <file>.jsonl | sort -u`.
 - For each candidate row, dedupe at *file* granularity: if the candidate's `source_path` is in `H`, skip the entire file (all of its sections); otherwise append the JSON line to `ai-docs/deferred/_inbox.jsonl` below the existing body.
-- Emit one `WARN: <spec-path> :: <section heading> — unrecognised body shape, no rows emitted` line to stdout for any section whose body matches none of the six shape rules; the row count for that section is zero and Step 12 continues normally.
+- Emit one `NOTE: <spec-path> :: <section heading> — prose outside the bullet shapes, emitted as a row` line to stdout for each paragraph that reached rule 7; the paragraph is a row like any other, and Step 12 continues normally. **There is no shape that emits zero rows besides rule 1's `None` sentinel** — a warning that dropped the item is what rule 7 replaced.
 - The Step 12 commit stages `_inbox.jsonl` alongside the existing artefacts.
 
 ## Step 12 — PR-body template (detail)
