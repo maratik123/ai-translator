@@ -8,8 +8,8 @@ _Updated: 2026-09-19 10:22_
 **Last build:** not run
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 8 — implementation starting, 0 of 5 subtasks complete
-**last_passed_gate:** not run
+**current_step:** Step 8 — subtask 1 of 5 complete
+**last_passed_gate:** make verify components run individually for subtask 1 (build, test, fmt --check, clippy, doc-check, lock-check, import-guard, panic-calls, comment-refs, file-limits) — all GREEN; cover-ratchet raised 0.00% -> 89.47% at commit 0d40e6a
 **entry_args:** 13
 
 ## Next action
@@ -18,8 +18,8 @@ _Updated: 2026-09-19 10:22_
 
 ## Subtasks
 
-- [ ] 1. Dependency set, first migration, embedded migrator — `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs`  ← CURRENT
-- [ ] 2. Container harness and the database-backed test target — `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs`
+- [x] 1. Dependency set, first migration, embedded migrator — `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` — commit 0d40e6a
+- [ ] 2. Container harness and the database-backed test target — `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs`  ← CURRENT
 - [ ] 3. Correct the statements this diff falsifies (D12)
 - [ ] 4. Record the harness decision where it will be looked for
 - [ ] 5. Amend the corpus row and tick what this task closes in full (D13)
@@ -34,6 +34,8 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 6**: the corpus row `docs/03-storage.md:7` names three mechanisms that cannot hold together — verified independently by the orchestrator against downloaded crate sources, not taken from the delegate's report.
 - **Step 6**: the owner authorised the substitute mechanism AND the corpus amendment in this same pull request (answer 4.1); it is design work and originates no spec row.
 - **Step 7**: design-review round 1 returned GO with four issues and three recommendations; all seven are design-internal, so `design-writer` folded them in and design-review did not run again.
+- **Step 8 (subtask 1)**: `testcontainers` pinned to `0.27.3`, not the `0.28.0` the design measured — `testcontainers-modules` 0.15.0's own published manifest requires `testcontainers = "0.27.0"` (checked directly in its downloaded `Cargo.toml`, `[dependencies.testcontainers] version = "0.27.0"`), so `0.28.0` and `testcontainers-modules 0.15.0` cannot resolve together (`cargo add` reported the bollard-stubs conflict verbatim). No newer `testcontainers-modules` exists on crates.io (0.15.0 is still the newest). Re-verified against the resolved 0.27.3 source that every API surface the design's D3/D4/D5 cite still exists there: `ImageExt::with_name`/`with_tag` (`image_ext.rs:60,66`), `async_container::rm` at `:205` and the `Drop` removal branch, `async_drop.rs:17` `Handle::current`, no `ryuk`/`reaper` match anywhere in the crate, and `testcontainers-modules`' `postgres::mod.rs` still carries `with_host_auth` and the dual-stream `ready_conditions`. `libtest-mimic` (0.8.2) and `tokio` (1.53.1) resolved as the design named without conflict.
+- **Step 8 (subtask 1)**: the Test Design's stated migration description `vector_extension` does not match sqlx's actual behaviour — `sqlx-core-0.9.0/src/migrate/source.rs:220-222` replaces `_` with a space when deriving a migration's description from its file name, so `0001_vector_extension.sql` yields the description `"vector extension"` (observed directly by running the unit test red, then green after correcting the literal). The unit test asserts the observed value with a comment naming why, rather than weakening the assertion or renaming the file.
 
 ## GO notes
 
@@ -73,4 +75,8 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 
 ## Files touched
 
-- (none yet — Step 8 has not started a subtask)
+- `Cargo.toml` — populated `[workspace.dependencies]` (sqlx, testcontainers, testcontainers-modules, libtest-mimic, tokio), rewrote the now-false empty-table comment
+- `Cargo.lock` — regenerated via `cargo build`/`cargo update -p testcontainers --precise 0.27.3`, never hand-edited
+- `crates/core/Cargo.toml` — `sqlx` as a normal dependency; `testcontainers`, `testcontainers-modules`, `libtest-mimic`, `tokio` as dev-dependencies, all `.workspace = true`
+- `crates/core/migrations/0001_vector_extension.sql` — new, single statement, no comment
+- `crates/core/src/lib.rs` — `pub static MIGRATOR` + `#[cfg(test)]` unit test covering AC2's no-container half
