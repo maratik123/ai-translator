@@ -57,3 +57,24 @@ An entry is a conduct correction or a validation of this project's own runs; a d
 **at:** a46eea6
 **Kind:** correction
 **Escalated?** no
+
+### 2026-09-19 — tooling — a probe's scratch files landed in the repository root when its `cd` failed
+**What happened:** A multi-line Bash probe opened with `cd tmp/guard-probe`, but that directory did not exist — the earlier command that would have created it had been refused by a hook, and only the `cd` line carried the `&&`. The `cd` failed, the remaining newline-separated lines ran in the repository ROOT, and three scratch files were written there. Their own output said so (`exit=127`, `No such file or directory`), and they surfaced in `git status` after the next commit; they were inspected, confirmed to be the probe's, and removed.
+**Rule:** When a probe's working directory is load-bearing, make the command fail closed instead of falling through — `cd <dir> || exit 1` as the first statement, or give every output an absolute path under `tmp/`. A bare `cd` on its own line guards nothing: the lines after it run wherever the shell happens to be, so a failed `cd` silently relocates the whole probe onto the tree it was supposed to leave alone.
+**at:** 8c3d231
+**Kind:** correction
+**Escalated?** no
+
+### 2026-09-19 — process — claimed what an upstream PR "says" after querying only its title and state
+**What happened:** While verifying a delegate's design-blocking report, I ran `gh pr view 4050 --repo launchbadge/sqlx --json number,state,title,mergedAt` and then sent the delegate a correction asserting the PR "is not described upstream as adding a `var` argument" — a claim about the body, from a query that did not request the body. The delegate fetched it and refuted me: line 3 reads "Adds grouping by `env` and specification of environment variable names by `var` as macro arguments", and line 21 "Added `TestArgs::database_url_var`". The half of my check that matched the fields I actually read (OPEN, `mergedAt` null) was sound; the half about the description was an assertion over a field I had not fetched. The correction had already been sent to a delegate, so it cost the delegate a verification round.
+**Rule:** A claim about what an upstream issue or PR *proposes, says or is described as* requires the body in the query (`--json body`, plus comments where the resolution lives). Title and state answer "is it merged" and nothing else. Narrowing a query's field set and then making a claim of wider scope than those fields is the same failure as reading a coordinate off a range printer: the instrument answered a different question than the one the claim needs, and its output looks equally authoritative either way.
+**at:** e9bcfb4
+**Kind:** correction
+**Escalated?** no
+
+### 2026-09-19 — process — a delegation prompt quoted the verification half of a rule and dropped the hazardous-mechanism half
+**What happened:** A Mode B delegate was asked to prove a strengthened assertion could fail, and the prompt ended "then revert and confirm the revert with `git diff --name-only`". That phrasing echoes the second half of the standing rule on undoing a probe edit and silently omits its first half — that the revert comes from a copy under `tmp/`, because `git checkout -- <file>` and `git restore <file>` restore the whole working-tree file and drop every uncommitted edit in it. The delegate reverted its probe with `git checkout -- crates/core/tests/support/mod.rs`. Nothing was lost — the file was committed and carried no unstaged work, verified afterwards with `git diff --stat HEAD --` returning empty and the earlier counter fix still present at lines 37 and 69 — so the hazard did not fire. An earlier delegate on the same branch, given a prompt with no mechanism named at all, happened to choose a `tmp/` copy.
+**Rule:** When a delegation prompt asks for a probe that mutates a tracked file, name the revert mechanism, not just its verification: restore from a copy taken under `tmp/` before the mutation, then confirm with `git diff --name-only`. Quoting a rule's check while omitting its method is worse than quoting neither — the delegate reads a complete-looking instruction and fills the gap with whatever is ergonomic, and the ergonomic choice here is the one the rule exists to forbid. The outbound phase of a delegation executes every load-bearing clause the prompt carries, and a half-quoted rule is a load-bearing clause.
+**at:** 2b597a9
+**Kind:** correction
+**Escalated?** no

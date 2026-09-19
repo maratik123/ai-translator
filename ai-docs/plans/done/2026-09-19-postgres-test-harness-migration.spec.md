@@ -1,0 +1,44 @@
+# Postgres test harness and the vector-extension migration
+
+**Source:** issue #13
+**Date:** 2026-09-19
+**Tracked in:** #13
+
+The first task of the milestone that touches the database. It carries no schema: what it
+delivers is a live connection the suite provisions for itself, plus one migration small
+enough that a single question to the database proves the container really carries the
+extension.
+
+## Scope
+1. The test suite provisions a Postgres database carrying the `vector` extension for itself, in a container it starts over the Podman socket. [task: "`testcontainers` с образом `pgvector/pgvector:pg18` через Podman socket"]
+2. A run of the suite starts one container for the whole test binary rather than one per test. [task: "контейнер один на тестовый бинарь"]
+3. Every database-backed test runs against a database of its own, with the repository's migrations applied to it. [task: "`#[sqlx::test]` создаёт базу на тест и накатывает миграции сам"]
+4. The repository carries a first migration that creates the `vector` extension and does nothing else. [task: "ровно одна инструкция: `CREATE EXTENSION IF NOT EXISTS vector`"]
+5. The suite starts its database in the repository's CI run as well as on the developer machine, so the container-backed tests are part of the normal run in both places. [answer 1.1: "И в CI"]
+
+## Out of scope
+- The storage schema: the tables, the indexes and the repositories `docs/03-storage.md` describes. This task asks the database one question and delivers no table.
+- Applying migrations to a database outside the test suite, and the schema-version check a database open performs — each a separate row of `docs/03-storage.md` § Задачи and its own task.
+- The application's own database: the role, the database and the connection the application reads at run time.
+
+## Deferred
+- None.
+
+## Key decisions
+| Question | Decision |
+|---|---|
+| Why the first migration belongs to this task rather than to the schema task | Otherwise the two lock each other: a migration test needs the harness, and the harness's definition of done needs a migration. The minimal first migration breaks the cycle and checks the most fragile point of the configuration at the same time. [task: "Минимальная первая миграция разрывает его и заодно проверяет самое хрупкое место в конфигурации"] |
+| How far does the harness have to reach — the developer machine, or the repository's CI run as well? | The CI run as well: the container-backed tests belong to the normal run in both places. [answer 1.1: "И в CI"] |
+| Does the image the suite starts follow the floating tag the task names, or name the extension version the developer machine runs? | The floating tag, as the task names it. The version line of the task text describes the build that tag serves at the time of writing; when the registry moves the tag, the suite moves with it. [answer 1.2: "Как есть"] |
+
+## Acceptance Criteria
+| # | Criterion |
+|---|-----------|
+| AC1 | The database the suite provisions accepts a value of the `vector` type, so the image it started carries the extension rather than only its name. [task: "`SELECT 'x'::vector` (или эквивалент) проходит — то есть образ действительно несёт pgvector, а не только называется так"] |
+| AC2 | The repository's first migration is a single statement creating the `vector` extension, and no other migration precedes it. [task: "ровно одна инструкция: `CREATE EXTENSION IF NOT EXISTS vector`. Дока требует расширение именно первой миграцией."] |
+| AC3 | Every database-backed test of the suite runs against a database of its own, with the repository's migrations applied to it. [task: "`#[sqlx::test]` создаёт базу на тест и накатывает миграции сам"] |
+| AC4 | A run of the suite starts one container for the whole test binary, not one per test. [task: "контейнер один на тестовый бинарь"] |
+| AC5 | The database-backed tests are part of the repository's CI run and pass there, not only on the developer machine. [answer 1.1: "И в CI"] |
+
+## Open questions
+None.

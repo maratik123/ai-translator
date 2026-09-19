@@ -5,3 +5,4 @@ One row per plan, in dependency order. A plan lands here when its spec is writte
 | Plan | Status | Depends on | Tracked in |
 |---|---|---|---|
 | [2026-09-18-workspace-crate-skeletons](done/2026-09-18-workspace-crate-skeletons.spec.md) | ✅ implemented | — | #10 |
+| [2026-09-19-postgres-test-harness-migration](done/2026-09-19-postgres-test-harness-migration.spec.md) | ✅ implemented | [2026-09-18-workspace-crate-skeletons](done/2026-09-18-workspace-crate-skeletons.spec.md) | #13 |

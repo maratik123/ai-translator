@@ -87,6 +87,6 @@ A four-band ladder, counted as raw lines with comments and blanks included:
 | **1200** | **hard limit for a file under a crate's `src/`** |
 | **1500** | **hard limit for a file under `tests/`** |
 
-`make file-limits` gates both hard bands. The `src/` band is the wider of the two because a unit test lives in the file it tests, inside its `#[cfg(test)]` module, so one file holds code and its unit tests together. Neither number has been measured against this tree: the crates it holds are skeletons, and a skeleton is not the real distribution the bands wait for. Re-set them from that distribution once the crates carry code, in a commit that says what it measured.
+`make file-limits` gates both hard bands. The `src/` band is the wider of the two because a unit test lives in the file it tests, inside its `#[cfg(test)]` module, so one file holds code and its unit tests together. Neither number has been measured against this tree: the crates carry their first code now, and a migration with the harness that exercises it is not the real distribution the bands wait for. Re-set them from that distribution once the crates carry the code they are for, in a commit that says what it measured.
 
 A cohesive medium-sized file is not a defect; one type per file is not a Rust idiom. A split is by responsibility, never by line count.

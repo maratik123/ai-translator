@@ -28,10 +28,10 @@ SHELL := /bin/bash
 # that is Rust's and not a preference: a unit test lives in the file it tests,
 # inside its `#[cfg(test)]` module, so one cap covers code and its unit tests
 # together. Integration tests under `tests/` get the wider one. Neither number
-# has been measured against this tree: the crates it holds are skeletons, and a
-# skeleton is not the real distribution the bands wait for. Re-set them from
-# that distribution once the crates carry code, in a commit that says what it
-# measured.
+# has been measured against this tree: the crates carry their first code now,
+# and a migration with the harness that exercises it is not the real
+# distribution the bands wait for. Re-set them from that distribution once the
+# crates carry the code they are for, in a commit that says what it measured.
 RS_MAX_LINES ?= 1200
 RS_MAX_TEST_LINES ?= 1500
 

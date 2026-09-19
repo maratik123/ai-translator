@@ -14,5 +14,9 @@ license = "Apache-2.0"
 publish = false
 
 [workspace.dependencies]
-# A dependency is added here only once a member's code compiles against it;
-# nothing does yet, so the table is empty.
+# A dependency is added here only once a member's code compiles against it.
+libtest-mimic = "0.8.2"
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-none", "postgres", "migrate", "macros"] }
+testcontainers = "0.27.3"
+testcontainers-modules = { version = "0.15.0", features = ["postgres"] }
+tokio = { version = "1.53.1", features = ["rt-multi-thread"] }
