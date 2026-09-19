@@ -14,7 +14,10 @@ and each member's `[dependencies]` section is empty
 `[measured 128c2fb:crates/{shared,core,cli,migrate}/Cargo.toml:8 · for c in shared core cli migrate; do awk '/^\[dependencies\]/{print FILENAME":"NR": "$0; f=1; next} f{print FILENAME":"NR": "$0}' crates/$c/Cargo.toml; done → ':8: [dependencies]' in each of the four and no line after it]`.
 `crates/core/src/lib.rs` is a single `//!` line and carries no item
 `[measured 0daa273:crates/core/src/lib.rs · cat crates/core/src/lib.rs → "//! The translation engine: segmentation, retrieval, prompting and validation."]`.
-There is no `migrations` directory, no test target, and no code that opens a database.
+At that commit there is no `migrations` directory, no test target and no code that opens a database
+`[measured 0daa273 · git ls-tree -r --name-only 0daa273 -- crates/ → each member's manifest and its single root source and nothing else; the same listing filtered for "migrations/" or "tests/" returns no path. The commit is read with ls-tree rather than ls-files on purpose: ls-files answers for the index, which now holds what the subtasks below added]`.
+This section describes the tree the design was written against, not the tree a later reader finds:
+the subtasks below are what change it.
 
 Gates are already written for the world this task creates, and none of them needs changing. The
 dependency-direction gate's forbidden table already names both container crates, with the reason each
@@ -315,8 +318,9 @@ transitive walk it already performs `[measured 0daa273:ai-docs/scripts/import_gu
 Lifting now would create a member with one consumer, which is the opposite error.
 
 **D10 — The socket is the environment's to name; the build entry point is not touched.** The container
-crate resolves its host from `DOCKER_HOST` before any fallback, and falls back to the platform default
-socket when the variable is unset
+crate resolves its host from `DOCKER_HOST` ahead of every socket fallback — a `tc.host` entry in the
+user's `~/.testcontainers.properties` is the only source it consults first — and falls back to the
+platform default socket when the variable is unset
 `[measured testcontainers@0.27.3 · awk 'NR>=44 && NR<=54 {print NR": "$0}' testcontainers-0.27.3/src/lib.rs → ':44: ##### The host is resolved in the following order:' over a list whose second entry is ':47: 2. "DOCKER_HOST" environment variable.' and whose fourth is ':49: 4. Read the default Docker socket path'; and grep -n 'pub const DEFAULT_DOCKER_HOST' testcontainers-0.27.3/src/core/env/config.rs → ':34: pub const DEFAULT_DOCKER_HOST: &str = "unix:///var/run/docker.sock";']`.
 The developer machine exports the variable already
 `[measured podman@5.8.2 · printf '%s\n' "$DOCKER_HOST" in a shell initialised from the user's profile → unix:///run/user/1000/podman/podman.sock, and ls -la /run/user/1000/podman/ → a socket named podman.sock]`,
@@ -334,11 +338,37 @@ is **not** closed by this task, because this design deliberately declines that c
 stays unticked under `[answer 4.3]`, which ticks only what is closed in full. Amending it is outside
 the single corpus amendment the owner authorised, so it is left alone and recorded here.
 
-**D11 — AC4 is asserted from the server's side, not only from the harness's own bookkeeping.** A
-counter the harness increments would test the harness. Two databases handed out separately are on the
-same server if and only if the server reports the same postmaster start instant, which is the
-database's own evidence and not ours; the harness's own start counter is asserted beside it as the
-cheap cross-check, and the two disagreeing is itself informative. § Test Design specifies both.
+**D11 — AC4's primary evidence is the count of container starts; the server's own instant
+corroborates it.** This decision is restated rather than patched, because its earlier wording had the
+reasoning backwards and licensed a check that cannot fail.
+
+The old reading was that "a counter the harness increments would test the harness". That is the wrong
+frame: **AC4 is a claim about how many containers a run starts**, so the harness is the subject of the
+measurement, not a mock standing in for one. The count is therefore the primary evidence — on one
+condition, which is the whole of the correction: it must be incremented **at the site that awaits the
+container start**, so that a second start anywhere in the binary is observable. A counter set to its
+expected value in a constructor and never touched asserts nothing at all.
+
+Two consequences, both of which the code must honour:
+
+- **The counter is a process-wide `static AtomicU32`, not a field of a harness instance.** A
+  per-instance counter would see a start moved into the per-database path, but not a second `Harness`
+  constructed somewhere; and "one container for the whole test binary" is a claim about the process,
+  so the counter that answers it has to be one too. **This does not reopen D2**: what D2 forbids in a
+  `static` is the *container handle*, whose destructor never running is the entire problem. An atomic
+  integer owns no resource and has no destructor.
+- **The server's `pg_postmaster_start_time()` stays, as corroboration, and its blind spot is named.**
+  Both databases in that case are taken inside one trial, so a harness that started one container *per
+  trial* would satisfy it. That is exactly the shape AC4 calls the failure — "not one per test" — and
+  only the start count sees it. Neither check subsumes the other, which is why both are specified.
+
+*What the shipped harness does instead.* The counter is a harness field initialised to its expected
+value and never incremented, so the trial compares that value with itself
+`[measured 333d443:crates/core/tests/support/mod.rs:45,74,80-81 · grep -n 'container_starts' crates/core/tests/support/mod.rs crates/core/tests/database.rs → ':45: container_starts: AtomicU32,', ':74: container_starts: AtomicU32::new(1),', ':81: self.container_starts.load(Ordering::SeqCst)' and database.rs ':195: let starts = harness.container_starts();'; and a sweep for any mutation, grep -rnE 'container_starts *(\.fetch_add|\.store|\.swap|\+=)' crates/ → no output, over the 6 .rs files find crates -name '*.rs' reports, with a constructed control file carrying a fetch_add, a store and a += line matched by the same pattern]`,
+which makes the comparison at `crates/core/tests/database.rs:196` a branch with no reachable failure
+mode. The correction this decision requires is named in the dash that follows — a process-wide static,
+zero at rest, incremented at the start site — plus the red observation § Test Design now demands. It
+lands inside subtask 2's file set; **no new subtask is created for it.**
 
 **D12 — The statements this diff falsifies are corrected in the same pull request.** They fall into a
 definitive class and a judgement class, separated here so the judgement is visible rather than
@@ -408,7 +438,7 @@ SQL comment.
 pin.** The design's coordinates were first measured against 0.28.0; the implementation resolved
 0.27.3, and the owner sent the divergence back through the normal path rather than letting either
 side drift: `[answer 5.1: "Правка + ревью. Штатный путь: design-writer приводит координаты D3/D4/D5 к 0.27.3, затем design-review прогоняется заново."]`.
-Every tag in this design now cites the version the lockfile actually holds
+The version the lockfile holds
 `[measured 0f1322b:Cargo.lock · awk '/^name = "testcontainers/{n=$3} /^version/{if(n){print n, $3; n=""}}' Cargo.lock → "testcontainers" "0.27.3" and "testcontainers-modules" "0.15.0"]`.
 
 *Why it is not simply raised.* The Postgres module is what selects the line: its published manifest
@@ -429,12 +459,11 @@ whose bound admits it. The other escape is to stop using the module and hand-bui
 forfeits the readiness conditions D4 keeps on purpose — that is a design change, and it belongs in a
 task that argues for it.
 
-*What the move cost this design: nothing, and that was checked rather than assumed.* Every coordinate
-cited here was re-run against the 0.27.3 tree in the amendment turn and read identically — same
-paths, same line numbers, same text — and a whole-tree diff shows the releases differing in nothing
-this design's mechanism reaches: a bollard type rename on the mount conversion, which is dead code
+*What the move cost this design: nothing, and that was checked rather than assumed.* A diff of the
+two `src` trees shows the releases differing in nothing this design's mechanism reaches: a bollard type rename on the mount conversion, which is dead code
 here because the harness mounts nothing, and the ssh sidecar's image tag, which belongs to a feature
-this design does not enable. Those are the whole of the difference
+this design does not enable. Those are the whole of the difference between the two `src` trees; the
+published manifests differ too, and in the bollard requirement this decision has already been through
 `[measured testcontainers@0.27.3 vs @0.28.0 · diff -rq testcontainers-0.27.3/src testcontainers-0.28.0/src → only src/core/containers/host.rs and src/runners/async_runner.rs differ; diff -u on each → MountTypeEnum renamed to MountType in the From<&Mount> impl, and ssh_tag moved from "1.3.0" to "1.4.0" behind the host-port-exposure feature]`.
 In particular the ryuk argument, which D2 leans on hardest, was re-measured on 0.27.3 rather than
 carried over — see § *The corpus names a mechanism…*, whose sweep and control were both re-run there.
@@ -493,7 +522,7 @@ A commit that stages only documents is unaffected, which is most of a run.
 
 | # | Task | Files | Depends on |
 |---|------|-------|------------|
-| 1 | **The dependency set, the first migration, and the embedded migrator.** Add the workspace dependency entries with `cargo add` (never a hand-edited lockfile), taking the container crate from the 0.27 series rather than the newest release — the Postgres module's bound is what decides it and the resolver refuses the alternative (**D14**) and rewrite the root manifest's now-false comment about the empty table (D12). Declare `sqlx` as a normal dependency of `reader-core` with default features off and the set D7 fixes, and the dev-dependencies the next subtask needs — the container crate, its Postgres module, the runner and the async runtime — so the manifest is written once. Add `crates/core/migrations/0001_vector_extension.sql` carrying the single `CREATE EXTENSION IF NOT EXISTS vector` statement and **no comment line** (D6 — the loader keeps the file's bytes verbatim, so a comment would land inside both the embedded text and the checksum), and expose the embedded migrator from `crates/core/src/lib.rs` with a doc comment that obeys the reference ban and KD-19 (§ *What the gates will read afterwards*). Add the `#[cfg(test)]` module beside it asserting the embedded set against AC2 — the lowest-versioned migration is version 1, described `vector_extension`, no migration carries a lower version, and its statement is exactly the one above. That test needs no container and is the half of AC2 that a machine without a runtime can still check. | `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` | — |
+| 1 | **The dependency set, the first migration, and the embedded migrator.** Add the workspace dependency entries with `cargo add`, never a hand-edited lockfile, taking the container crate from the 0.27 series rather than the newest release (the Postgres module's bound decides it and the resolver refuses the alternative — **D14**). Rewrite the root manifest's now-false comment about the empty table (D12). Declare `sqlx` as a normal dependency of `reader-core` with default features off and the set D7 fixes, and the dev-dependencies the next subtask needs — the container crate, its Postgres module, the runner and the async runtime — so the manifest is written once. Add `crates/core/migrations/0001_vector_extension.sql` carrying the single `CREATE EXTENSION IF NOT EXISTS vector` statement and **no comment line** (D6 — the loader keeps the file's bytes verbatim, so a comment would land inside both the embedded text and the checksum), and expose the embedded migrator from `crates/core/src/lib.rs` with a doc comment that obeys the reference ban and KD-19 (§ *What the gates will read afterwards*). Add the `#[cfg(test)]` module beside it asserting the embedded set against AC2 — the lowest-versioned migration is version 1, described **`vector extension`** (the loader replaces the file name's underscores with spaces, so the description is never the file name's spelling — § Test Design carries the measurement), no migration carries a lower version, and its statement is exactly the one above. That test needs no container and is the half of AC2 that a machine without a runtime can still check. | `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` | — |
 | 2 | **The container harness and the database-backed test target.** Declare the target with its own `main` in `crates/core/Cargo.toml` (`harness = false`). Write the support module under `crates/core/tests/support/`: start one container from the overridden image (D4), build one admin pool over connect options assembled field by field with TLS disabled and no password (D5), hand out a freshly created and migrated database per caller, and expose the shutdown `main` drives through its runtime, whose result is reported rather than discarded (D3). Hold the container in a take-once slot and hand the harness out as an `Arc` — never a leak, never a `static` — with the per-database name built from a fixed prefix and an atomic counter so it is unique under the runner's default parallelism (D2). Write the test target: `main` builds a multi-threaded runtime, starts the harness, registers the trials § Test Design names — each closure taking an `Arc` clone and a runtime-handle clone — runs them, shuts the harness down after `run` returns, and propagates the runner's verdict as the process's exit status. | `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs` | 1 |
 | 3 | **Correct the statements this diff falsifies (D12).** Rewrite the tolerance paragraph's reason clause and its twin in the ratchet script's header so both say what is now true — a crate carries a test, and the tolerance still has no drift series behind it — leaving the tolerance value and the script's conditional branches untouched. Rewrite the file-size bands' justification in the build entry point's comment and in its twin in the code-style reference to the same judgement: the crates carry their first code, and the bands still wait for a real distribution, so they do not move. Leave the condition-governed gate-script sentences § D12 enumerates alone; they are absent from this file set on purpose, because an untouched listed file reads as a missed site. The build entry point is in the comment-reference gated set, so a rewritten comment there obeys the same ban as a Rust one. | `AGENTS.md`, `.githooks/coverage-ratchet.sh`, `Makefile`, `ai-docs/code-style.md` | 2 |
 | 4 | **Record the harness decision where it will be looked for.** Add a key-decision row, in the page's own shape — decision, why, consequence, source — numbered after the last row the page carries, stating that the database-backed target owns its `main` so that one container serves the binary *and* is removed when the run ends, and that `#[sqlx::test]` is not the vehicle because its only connection source is the variable the suite is forbidden to read. The *consequence* field carries what a later test author inherits: a trial is registered in `main`, an unregistered one is a denied lint rather than a silent pass, and the lift threshold D9 fixes. The row also records that the corpus row naming the old mechanism was amended in the same pull request on the owner's authorisation, so a later reader meets the amendment and its reason together. The *source* field is backticked prose, not a markdown link, and names this design at the path it carries after Step 12 — `ai-docs/plans/done/2026-09-19-postgres-test-harness-migration.design.md` § D1–D3 and § D13 — because the pre-retirement path is stale before the pull request opens. | `ai-docs/key-decisions.md` | 2 |
@@ -511,7 +540,11 @@ after it moved no boundary either — every item it raised lands inside a subtas
 workflow's paths filter recorded rather than changed), so `M`, the grouping and the change-type
 homogeneity are all unchanged and re-checked rather than merely restated. The version amendment that
 followed moved nothing either: it rewrites coordinates and adds **D14**, touching no file set and
-creating no subtask, so the plan below stands as it was.
+creating no subtask. Nor does the review round after it: correcting the migration's description and
+making AC4's start count falsifiable (**D11**) both land inside file sets subtasks 1 and 2 already
+own, so `M`, the grouping and the change-type homogeneity are unchanged again. The code correction
+D11 requires is a change to files Group A has already committed, and the orchestrator routes it — this
+design decides what the correct fix is, and creates no subtask to carry it.
 
 - **Entry into Group A:** spawn `/context-reset` per `.claude/skills/context-reset/SKILL.md`
   § Compaction recovery (re-entry). The first group takes a handoff exactly as every later one does.
@@ -584,14 +617,25 @@ carries its own measurement where it is used.
 
 - **Entry point:** the embedded migrator constant.
 - **Case — the embedded migration set satisfies AC2.** The lowest-versioned migration carries version
-  `1`, the description `vector_extension`, and a statement whose trimmed text is exactly
-  `CREATE EXTENSION IF NOT EXISTS vector`; and no migration in the set carries a version below it. The
-  assertion is on the exact text, not on a substring: a substring assertion passes for a file that
-  grew a second statement, which is the half of AC2 that matters. `trim` is there for the file's
-  trailing newline and for nothing else — the loader keeps every other byte, comments included (D6),
-  so **if this case ever goes red the repair is the migration file, never the assertion.** Weakening
-  it to a substring, or teaching it to strip comment lines, hands back exactly the property it exists
-  to hold `[derived → AC2]`.
+  `1`, the description **`vector extension`** — the loader derives a description from the file name by
+  stripping the type suffix and replacing underscores with spaces, so the file `0001_vector_extension.sql`
+  yields a description with a space and never the file name's spelling
+  `[measured sqlx-core@0.9.0 · awk 'NR>=217 && NR<=223 {print NR": "$0}' sqlx-core-0.9.0/src/migrate/source.rs → ':220: let description = parts[1]' / ':221: .trim_end_matches(migration_type.suffix())' / ':222: .replace('_', " ")'; and the suffix for a simple migration is ".sql" per MigrationType::suffix in sqlx-core-0.9.0/src/migrate/migration_type.rs:61]` —
+  and a statement whose trimmed text is exactly `CREATE EXTENSION IF NOT EXISTS vector`; and no
+  migration in the set carries a version below it. The statement assertion is on the exact text, not
+  on a substring: a substring assertion passes for a file that grew a second statement, which is the
+  half of AC2 that matters. `trim` is there for the file's trailing newline and for nothing else — the
+  loader keeps every other byte, comments included (D6), so **if the statement assertion goes red the
+  repair is the migration file, never the assertion.** Weakening it to a substring, or teaching it to
+  strip comment lines, hands back exactly the property it exists to hold.
+
+  **That prescription is scoped to the statement text and to nothing else, and the scope is load-bearing.**
+  The version and description assertions are derived from the file's *name*, so "repair the file" would
+  there mean renaming an applied migration — which moves its version, its description and its recorded
+  checksum at once, and is precisely the redefinition INV-14 and the `AGENTS.md` § *API Stability*
+  carve-out forbid, and which § Risks names as this task's first risk. If a version or description
+  assertion disagrees with the file name, the correct move is to find out which of the two is wrong and
+  say so, never to rename a migration that has been applied anywhere `[derived → AC2]`.
 - **Why it lives here and not in the container target:** it asserts what the *repository* embeds, not
   what a database did with it, so it must stay runnable on a machine with no container runtime
   `[derived → AC2]`.
@@ -625,10 +669,13 @@ Trials:
   current-database names differ, creates a table in the first, and asserts the second does not have
   it. Written inside one trial rather than across two, because cross-trial ordering is not something
   the runner promises and a test that depends on it is a flake `[derived → AC3]`.
-- **`one_container_serves_the_whole_binary`** — the two databases of the previous case report the
-  identical postmaster start instant, which is the server's own evidence that they are one server
-  (D11); the harness's own container-start count is asserted to be one beside it, as the cheap
-  cross-check whose disagreement with the first half would itself be the finding `[derived → AC4]`.
+- **`one_container_serves_the_whole_binary`** — the process-wide start count, incremented at the site
+  that awaits the container start, is asserted to be one; and the two databases of the previous case
+  report the identical postmaster start instant, the server's own evidence that one server backs both.
+  The count is the primary evidence and the instant corroborates it, in that order and for the reason
+  D11 gives: the instant cannot see a container started once per trial, and the count can. Neither is
+  decoration, and the count's failure mode is exercised below rather than asserted to exist
+  `[derived → AC4]`.
 - **`concurrent_requests_get_distinct_databases`** — the shared path the runner's default parallelism
   puts the harness on is driven rather than assumed (`AGENTS.md` § *Test Conventions*): one trial asks
   for several databases from concurrent tasks, joins them, and asserts every reported current-database
@@ -658,6 +705,12 @@ green suite that has never been seen red is a claim about the suite (`AGENTS.md`
 - **The isolation trial really tests isolation.** Make the harness hand out the same database name
   twice and confirm `each_trial_gets_its_own_database` fails. A fixture that never reaches the clause
   makes a green assertion meaningless `[derived → AC3]`.
+- **The start count can actually go red.** Add a second harness start to `main`, or move the start
+  into the per-database path, and confirm `one_container_serves_the_whole_binary` fails naming the
+  count it observed; then revert and confirm the revert with `git diff --name-only`. A count
+  initialised to its expected value and never incremented passes for every possible program, and that
+  is the shape this observation exists to rule out — it is also why D11 puts the increment at the start
+  site rather than in a constructor `[derived → AC4]`.
 - **The container is removed after a failing trial.** With one trial forced to fail, confirm the
   container is gone from the runtime's container list after the process exits, and that the process
   exit status is non-zero. The failing path is where an early return would hide the teardown
