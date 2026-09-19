@@ -8,19 +8,19 @@ _Updated: 2026-09-19 10:22_
 **Last build:** not run
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 8 — subtask 1 of 5 complete
-**last_passed_gate:** make verify components run individually for subtask 1 (build, test, fmt --check, clippy, doc-check, lock-check, import-guard, panic-calls, comment-refs, file-limits) — all GREEN; cover-ratchet raised 0.00% -> 89.47% at commit 0d40e6a
+**current_step:** Step 8 — Group A complete (subtasks 1–2 of 5)
+**last_passed_gate:** make verify components run individually for subtask 2 (build, test --workspace including the database-backed target, fmt --check, clippy, doc-check, lock-check, import-guard, panic-calls, comment-refs, file-limits) — all GREEN; cover-ratchet held 89.47% against 89.47% at commit df64b2a
 **entry_args:** 13
 
 ## Next action
 
-**Do this immediately:** hand off Group A (subtasks 1–2) to `code-writer` per the design's `## Handoff plan`, via `/context-reset`.
+**Do this immediately:** spawn `/context-reset` per the design's `## Handoff plan` § Handoff after Group A, then hand off Group B (subtasks 3–5) to `general-purpose`.
 
 ## Subtasks
 
 - [x] 1. Dependency set, first migration, embedded migrator — `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` — commit 0d40e6a
-- [ ] 2. Container harness and the database-backed test target — `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs`  ← CURRENT
-- [ ] 3. Correct the statements this diff falsifies (D12)
+- [x] 2. Container harness and the database-backed test target — `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs` — commit df64b2a
+- [ ] 3. Correct the statements this diff falsifies (D12)  ← CURRENT (Group B)
 - [ ] 4. Record the harness decision where it will be looked for
 - [ ] 5. Amend the corpus row and tick what this task closes in full (D13)
 
@@ -36,6 +36,14 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 7**: design-review round 1 returned GO with four issues and three recommendations; all seven are design-internal, so `design-writer` folded them in and design-review did not run again.
 - **Step 8 (subtask 1)**: `testcontainers` pinned to `0.27.3`, not the `0.28.0` the design measured — `testcontainers-modules` 0.15.0's own published manifest requires `testcontainers = "0.27.0"` (checked directly in its downloaded `Cargo.toml`, `[dependencies.testcontainers] version = "0.27.0"`), so `0.28.0` and `testcontainers-modules 0.15.0` cannot resolve together (`cargo add` reported the bollard-stubs conflict verbatim). No newer `testcontainers-modules` exists on crates.io (0.15.0 is still the newest). Re-verified against the resolved 0.27.3 source that every API surface the design's D3/D4/D5 cite still exists there: `ImageExt::with_name`/`with_tag` (`image_ext.rs:60,66`), `async_container::rm` at `:205` and the `Drop` removal branch, `async_drop.rs:17` `Handle::current`, no `ryuk`/`reaper` match anywhere in the crate, and `testcontainers-modules`' `postgres::mod.rs` still carries `with_host_auth` and the dual-stream `ready_conditions`. `libtest-mimic` (0.8.2) and `tokio` (1.53.1) resolved as the design named without conflict.
 - **Step 8 (subtask 1)**: the Test Design's stated migration description `vector_extension` does not match sqlx's actual behaviour — `sqlx-core-0.9.0/src/migrate/source.rs:220-222` replaces `_` with a space when deriving a migration's description from its file name, so `0001_vector_extension.sql` yields the description `"vector extension"` (observed directly by running the unit test red, then green after correcting the literal). The unit test asserts the observed value with a comment naming why, rather than weakening the assertion or renaming the file.
+- **Step 8 (subtask 2)**: sqlx 0.9.0's new `SqlSafeStr` audit rejected a dynamic `&String` in `sqlx::query`; resolved with `sqlx::AssertSqlSafe` (justified inline: the interpolated name is never caller-supplied — it is the harness's own fixed-prefix-plus-counter text) for `CREATE DATABASE`, and with a bound `$1` parameter instead of string interpolation for the vector-literal round-trip query, avoiding the audit entirely there.
+- **Step 8 (subtask 2)**: podman's own `podman pull docker.io/pgvector/pgvector:pg18` failed once against this session's live environment with `storage-untar: error while loading shared libraries: libsubid.so.5` (the host ships `libsubid.so.6`, not `.5`) while pulling a layer that needs subordinate-ID mapping; a plain `podman pull docker.io/library/alpine:3.19` succeeded in the same session. Running `podman pull` for the exact pgvector coordinates directly (outside testcontainers) succeeded and populated the local image cache; every subsequent `cargo test --workspace --test database` run in this session passed cleanly against the cached image. Recorded here rather than in a corpus or rule file — no repository text was touched to work around it, and no environment file outside the project root was edited.
+- **Step 8 (subtask 2)**: `make verify`'s pre-commit hook enforces the comment-reference gate on `tests/`, and the first commit attempt was rejected for 13 outward references — bare `(D1)`/`(D2)`/`(D3)`/`(D11)` decision anchors, bare `AC1`/`AC3`/`AC4` acceptance-criterion ids, and one `AGENTS.md` § *Code Style* markdown-path-plus-section citation, all in doc comments this subtask wrote. Rewritten to state the same content — what the trial checks, why the teardown is driven from inside the runtime, why a result is reported rather than discarded — without a pointer outside the comment; re-run of `make comment-refs` came back clean before the successful commit at `df64b2a`.
+- **Step 8 (Group A red observations, required before the last commit, AGENTS.md § Patterns 2)**: all four performed and reverted, `git diff --name-only` confirming each revert landed cleanly before the commit that followed.
+  1. Image coordinates temporarily swapped to `postgres:18` (plain, no pgvector) — `vector_type_is_usable` failed at the migration step itself (`error returned from database: extension "vector" is not available`), exit 101. Confirms the check is sensitive to the image actually carrying the extension, not merely to the query executing.
+  2. `DOCKER_HOST` pointed at a nonexistent socket path for one run — `main` panicked with `Client(Init(SocketNotFoundError(...)))`, exit 101; no test was skipped or silently reported as zero.
+  3. `create_database`'s counter temporarily short-circuited to always return id `0` — `each_trial_gets_its_own_database` failed with `database "reader_core_test_0" already exists`, exit 101.
+  4. A temporary always-failing trial appended to the target's trial list, run as the built binary directly (`target/debug/deps/database-<hash>`) rather than through `cargo test` (so the process's own exit status is observable) — exit 101, and `podman ps -a` showed no `pgvector/pgvector` container present after the process returned, confirming the container is removed on the failing path.
 
 ## GO notes
 
@@ -62,11 +70,11 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 
 | AC | Status |
 |----|--------|
-| AC1 | NOT_TESTED |
-| AC2 | NOT_TESTED |
-| AC3 | NOT_TESTED |
-| AC4 | NOT_TESTED |
-| AC5 | NOT_TESTED |
+| AC1 | PASS — `vector_type_is_usable` (commit df64b2a), verified with the red observation that a plain `postgres` image fails it |
+| AC2 | PASS — `embedded_migrations_satisfy_ac2` unit test (commit 0d40e6a), no container needed |
+| AC3 | PASS — `migrations_are_applied_to_every_database`, `each_trial_gets_its_own_database`, `concurrent_requests_get_distinct_databases` (commit df64b2a) |
+| AC4 | PASS — `one_container_serves_the_whole_binary` (commit df64b2a), verified with the red observation that a forced trial failure still ends with the container removed and a non-zero exit |
+| AC5 | NOT_TESTED — CI reach is Group B's subtask 3/§ *What the gates will read afterwards* concern, not code; local `cargo test --workspace` passes against the Podman socket |
 
 ## Review register
 
@@ -80,3 +88,6 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - `crates/core/Cargo.toml` — `sqlx` as a normal dependency; `testcontainers`, `testcontainers-modules`, `libtest-mimic`, `tokio` as dev-dependencies, all `.workspace = true`
 - `crates/core/migrations/0001_vector_extension.sql` — new, single statement, no comment
 - `crates/core/src/lib.rs` — `pub static MIGRATOR` + `#[cfg(test)]` unit test covering AC2's no-container half
+- `crates/core/Cargo.toml` — added `[[test]] name = "database" path = "tests/database.rs" harness = false`
+- `crates/core/tests/support/mod.rs` — new, the `Harness` (container start/shutdown, admin pool, per-call database creation and migration, take-once container slot behind `Arc`)
+- `crates/core/tests/database.rs` — new, `main` (multi-threaded runtime, trial registration, shutdown, exit code) and five trials covering AC1, AC3 (×3) and AC4
