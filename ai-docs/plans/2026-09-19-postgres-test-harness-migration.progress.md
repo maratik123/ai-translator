@@ -8,13 +8,13 @@ _Updated: 2026-09-19 10:22_
 **Last build:** PASS
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 7 — code reconciled with amended D11; design-review round 3 next
-**last_passed_gate:** make verify (full) | 2026-09-19T11:12:49Z | c98ccaa
+**current_step:** Step 8 — Group A complete and reconciled with the design; Group B (subtasks 3-5) next
+**last_passed_gate:** make verify (full) | 2026-09-19T11:52:19Z | f1630d3
 **entry_args:** 13
 
 ## Next action
 
-**Do this immediately:** spawn `/context-reset` per the design's `## Handoff plan` § Handoff after Group A, then hand off Group B (subtasks 3–5) to `general-purpose`.
+**Do this immediately:** hand off Group B (subtasks 3-5) to `general-purpose` per the design's `## Handoff plan`, via `/context-reset`.
 
 ## Subtasks
 
@@ -59,6 +59,8 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 
 - **Step 7 (round 4, GO)**: the design's PRESCRIBED red observation was performed by the orchestrator, closing the substitution gap recorded earlier. A second `Harness::start()` added to `main` gave exit 101 and `the harness recorded 2 container starts, expected 1`; reverted from a `tmp/` copy, `git diff --name-only` then listed no `.rs` file, and the five trials passed again at exit 0.
 - **Step 7 (round 4, GO)**: the half the substituted mutant could not reach was observed too, and it is the design's own reasoning made visible — the second container, never entered into the take-once slot, was NOT removed, and its handle's destructor panicked at `testcontainers-0.27.3/src/core/async_drop.rs:17` with `there is no reactor running`. Two orphaned containers (one from this probe, one from an earlier delegate's) were found running and removed by explicit id; the developer's own unrelated container was left alone.
+
+- **Step 7 (round 4, GO)**: folding the GO notes surfaced a code non-compliance nobody had asked about — `main` carried the shutdown's `Result` out through a panicking call, which substitutes its own process status for the runner's verdict. The panic gate cannot see it (everything under `tests/` is out of its scope by position), so only the amended D3 catches it. Fixed: the runner's code is captured before teardown, a removal failure goes to the error channel and raises a green run to a failing status, and never replaces a status the trials already earned.
 
 ## GO notes
 
