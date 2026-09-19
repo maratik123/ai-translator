@@ -57,6 +57,9 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 
 - **Step 7 (round 3)**: design-review returned ITERATE at round 3 of 3 — one major (D11's closing paragraph is present-tense false of HEAD after the counter fix landed), three minor, one note. All re-verified by the orchestrator against the files before routing. Cap exhausted, so the owner was asked rather than a bypass invented; the owner raised it — **cap: 4 (was 3)**.
 
+- **Step 7 (round 4, GO)**: the design's PRESCRIBED red observation was performed by the orchestrator, closing the substitution gap recorded earlier. A second `Harness::start()` added to `main` gave exit 101 and `the harness recorded 2 container starts, expected 1`; reverted from a `tmp/` copy, `git diff --name-only` then listed no `.rs` file, and the five trials passed again at exit 0.
+- **Step 7 (round 4, GO)**: the half the substituted mutant could not reach was observed too, and it is the design's own reasoning made visible — the second container, never entered into the take-once slot, was NOT removed, and its handle's destructor panicked at `testcontainers-0.27.3/src/core/async_drop.rs:17` with `there is no reactor running`. Two orphaned containers (one from this probe, one from an earlier delegate's) were found running and removed by explicit id; the developer's own unrelated container was left alone.
+
 ## GO notes
 
 | # | round | note | kind | route | resolution |
