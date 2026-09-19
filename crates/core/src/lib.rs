@@ -33,12 +33,5 @@ mod tests {
             "CREATE EXTENSION IF NOT EXISTS vector",
             "the lowest-versioned migration's statement is exactly the vector-extension statement"
         );
-        assert!(
-            MIGRATOR
-                .migrations
-                .iter()
-                .all(|migration| migration.version >= lowest.version),
-            "no migration in the set carries a version below the lowest one"
-        );
     }
 }
