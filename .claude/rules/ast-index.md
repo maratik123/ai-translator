@@ -34,6 +34,12 @@ nonexistent symbol.
 
 ## Positive results are NOT evidence either
 
+**These MUSTs are stated for search, and search is not their scope** — the general form is the probe
+AXIOM in AGENTS.md § *Build & Test*, and it binds a server probe, an HTTP measurement and a set
+difference exactly as it binds a `grep`. A probe reaching for a range instead of printing the
+coordinate, and a control read before its own process was confirmed to have started, are the same
+MUST failing on surfaces these words do not mention.
+
 **MUST — no search result is reportable until the same pattern has been run against a constructed
 string it MUST match, and seen to match.** One control line per probe, **before** the conclusion —
 not after being challenged. This binds a probe you write for yourself exactly as it binds a guard in
