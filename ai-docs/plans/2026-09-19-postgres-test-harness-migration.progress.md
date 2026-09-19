@@ -86,7 +86,7 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 | AC2 | PASS — `embedded_migrations_satisfy_ac2` unit test (commit 0d40e6a), no container needed |
 | AC3 | PASS — `migrations_are_applied_to_every_database`, `each_trial_gets_its_own_database`, `concurrent_requests_get_distinct_databases` (commit df64b2a) |
 | AC4 | PASS — `one_container_serves_the_whole_binary` (commit df64b2a), verified with the red observation that a forced trial failure still ends with the container removed and a non-zero exit |
-| AC5 | NOT_TESTED — CI reach is Group B's subtask 3/§ *What the gates will read afterwards* concern, not code; local `cargo test --workspace` passes against the Podman socket |
+| AC5 | NOT_TESTED — discharged by the CI run on the pull request itself, not by any subtask. The Rust jobs are reached by the `**/*.rs`, `**/*.sql` and manifest path filters, and the runner image ships the Docker daemon the container crate falls back to. Recorded against subtask 3 earlier, which was wrong: subtask 3 rewrites coverage-tolerance prose and owns none of AC5. |
 
 ## Review register
 
