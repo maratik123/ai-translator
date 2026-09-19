@@ -59,3 +59,10 @@ This log starts empty.
 **Proposed edit:** give the Commit B template in Russian, or drop the literal subject and name the fields the message must carry plus a pointer to the language split.
 **at:** 53adf8c
 **Forge:** forge-1
+
+### 2026-09-19 — `doc-edit-guard.sh` has no intended-shrink path, so an owner-ordered row removal cannot be guarded
+**target:** `ai-docs/scripts/doc-edit-guard.sh` § verify
+**Observed:** during `/task` on issue #13 the owner ruled that three acceptance rows be struck from the spec under interview. The `spec-writer` delegate skipped the guard for that edit and substituted a hand-built before/after diff, naming the omission in its return. Reproduced on a copy rather than taken on trust: `snapshot`, remove one `| AC` row, `verify` → exit 2, `ac-rows shrank 5 -> 4`, and the file restored from the backup. A growth control on the same copy exits 0 with `shape held`, so the guard is not simply red in every direction. `--help` lists `snapshot` and `verify`, and the case statement accepts no third form.
+**Gap:** the guard reads every shrink as truncation — right for the failure it was built for, wrong for a deliberate removal the owner ordered. A delegate told to strike a row has only two exits: run the guard and have the ruling silently undone, or skip the guard for that edit. The second leaves the edit unguarded at the one moment the document is being reshaped, which is when the guard is worth most. The restore message also names a cause that is not the one in play — `the edit truncated the document (anchor matched an in-text mention?)` — sending a reader after an anchoring bug that does not exist.
+**Proposed edit:** give `verify` a way to declare an intended shrink — an expected count, or an `--allow-shrink <marker>=<n>` argument recorded at snapshot time — so a deliberate removal stays guarded against every OTHER marker moving. Failing that, say in the usage text that a deliberate row removal is outside the guard's remit, and name the substitute check a delegate is expected to run in its place.
+**at:** fe41d84
