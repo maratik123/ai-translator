@@ -26,6 +26,7 @@ This log starts empty.
 **Gap:** the hook judges the command's text rather than the file the command writes, so a legitimate write is refused whenever its CONTENT names an instruction file. That content is not rare in this flow — it is the flow's normal subject matter: a `SPEC-REMIT` finding quotes the standing rule it is about, and the answer, the spec row and the design row that resolve it all carry the quotation. The block message lists three legal routes and none of them is the one both agents actually took, so each had to infer that a dedicated edit tool is untouched by a `Bash` matcher.
 **Proposed edit:** evaluate the path pattern against the write TARGET rather than the whole command — the redirect operand, the `sed -i` / `tee` operand, the first argument of `open()` — so that quoting a rule is never mistaken for editing it. If that is judged too fragile to parse, add the dedicated-edit-tool route to the block message's list, since the `Edit`/`Write` half of the same rule already keys on `file_path` and refuses the real case correctly.
 **at:** 0b2bc15
+**Forge:** forge-1
 
 ### 2026-09-18 — `/task` asserts a `.gitignore` state this repository does not have, and three steps are written against it
 **target:** `.claude/skills/task/SKILL.md` § Step 8 and § Step 12 sub-step 9a (and `ai-docs/templates/progress-format.md` § Lifecycle by field, which repeats the claim)
@@ -33,6 +34,7 @@ This log starts empty.
 **Gap:** three instructions are written against the absent entries. Step 8's per-group cleanliness check offers "an empty `git status --porcelain`" as an equivalent of `git diff --quiet && git diff --cached --quiet`, and the two are not equivalent here — the marker the same step creates makes the first form non-empty for every handoff. Step 12 sub-step 9a then requires `git status --porcelain` empty **after** the move, which the untracked `ignored/` directory and the still-present marker both defeat. Neither failure is a real defect in the work, so the flow would be teaching its operator to read past its own verification.
 **Proposed edit:** either add the entries the instructions assume (`ai-docs/plans/.task-inflight`, `ai-docs/plans/*.progress.md`, `ai-docs/plans/ignored/`) and keep the text, or drop the ignore claims and state the checks in the form that is actually sound here — `git diff --quiet && git diff --cached --quiet` for a handoff, and a status check scoped with `--untracked-files=no` or to the paths the step owns. The `git add -f` at Step 8 is harmless either way and can stay.
 **at:** 5fd1a04
+**Closed by:** #71
 
 ### 2026-09-19 — `/improve`'s clean-context eval cannot reach the probe-discipline or command-text classes
 **target:** `ai-docs/improve-eval-contract.md` § The RED baseline
@@ -40,6 +42,7 @@ This log starts empty.
 **Gap:** the instrument cannot separate *the rule is unnecessary* from *the rule's failure mode does not occur while the rule is the whole question*. Both classes are caught reliably by an idle agent asked about them directly and missed while doing something else — including under the load-bearing variant, whose primary task evidently did not demand enough attention to displace the clause.
 **Proposed edit:** record these two classes as known-unreachable on the contract page, and state what a load-bearing variant must cost the dispatched agent before its PASS counts as evidence of reach rather than evidence of an undemanding primary task.
 **at:** 136b290
+**Forge:** forge-1
 
 ### 2026-09-19 — the documented `comment-refs` gated set is narrower than the coded one, and its `.githooks/**` claim is not implemented
 **target:** `AGENTS.md` § Code Style and `ai-docs/doc-convention.md` § DOC-4 — a propagation pair, both carrying the list
@@ -47,6 +50,7 @@ This log starts empty.
 **Gap:** latent today, since no tracked `.bash` or `.mk` file exists — but an extensionless hook added under `.githooks/`, which is git's ordinary spelling, would be silently ungated while both documents state it is covered.
 **Proposed edit:** bring the two prose lists into agreement with the scanner's own language map, and replace the `.githooks/**` directory claim with the extension rule the code implements.
 **at:** 136b290
+**Forge:** forge-1
 
 ### 2026-09-19 — `/improve` Step 5 prescribes an English commit subject, which the language split forbids
 **target:** `.claude/agents/self-improve.md` § Step 5 item 2b
@@ -54,3 +58,4 @@ This log starts empty.
 **Gap:** the contract instructs the violation, so a run following Step 5 faithfully reproduces it. Nothing catches it except a review standing between the commit and the push, and after a push the only repair is a force-push, which § *Permissions* denies.
 **Proposed edit:** give the Commit B template in Russian, or drop the literal subject and name the fields the message must carry plus a pointer to the language split.
 **at:** 53adf8c
+**Forge:** forge-1

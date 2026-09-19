@@ -300,7 +300,7 @@ Capture the commit SHA; update the progress file.
  ```bash
  mkdir -p ai-docs/main-ci/ignored
  mv ai-docs/main-ci/<run-id>.progress.md ai-docs/main-ci/ignored/
- git add -u && git commit -m "chore(main-ci): retire the run's state file before the PR"
+ git add -u && git commit -m "chore(main-ci): убрать файл состояния прогона перед PR"
  git push
  ```
 
@@ -310,27 +310,27 @@ Capture the commit SHA; update the progress file.
 
  ```bash
  gh pr create --title "fix(main-ci): <one-line summary> (run <run-id>)" --body "$(cat <<'EOF'
- ## Summary
+ ## Суть
  
- <1-3 sentences: what failed, what the fix does, which class.>
+ <1-3 предложения: что упало, что делает фикс, какой класс.>
  
- ## Failing main run
+ ## Упавший прогон master
  
  <https://github.com/<O>/<R>/actions/runs/<run-id>>
  
  Class: <class>
  Main commit: <commit-sha>
  
- ## Local reproducer
+ ## Локальный репродьюсер
  
- `<reproducer command>` — re-ran GREEN after the fix.
+ `<команда репродьюсера>` — после фикса прогнан заново, зелёный.
  
- ## Test plan
+ ## План проверки
  
  - [x] `cargo build --workspace` / `cargo test --workspace` / `cargo fmt --all --check` / `cargo clippy --workspace --all-targets` clean
- - [x] `cargo clippy --workspace --all-targets` clean (if API changed)
- - [x] `actionlint` clean on touched workflows (if applicable)
- - [x] `self-review` APPROVE round <R>
+ - [x] `cargo clippy --workspace --all-targets` clean (если менялся API)
+ - [x] `actionlint` clean на затронутых workflow (если применимо)
+ - [x] `self-review` APPROVE, раунд <R>
  
  **Tracked in run:** <run-id>
  EOF

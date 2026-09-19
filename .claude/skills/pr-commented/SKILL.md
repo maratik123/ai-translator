@@ -124,10 +124,10 @@ fi
 > ```bash
 > mv ai-docs/plans/ignored/<spec-base>.progress.md ai-docs/plans/ # and the .state.md sibling
 > git add -f ai-docs/plans/<spec-base>.progress.md && git add ai-docs/plans/<spec-base>.spec.md.state.md
-> git commit -m "chore(plans): restore the run's state files for a spec/design amendment"
+> git commit -m "chore(plans): вернуть файлы состояния прогона для правки спеки или дизайна"
 > # … run the amendment; the files receive their writes as tracked files …
 > mkdir -p ai-docs/plans/ignored && mv ai-docs/plans/<spec-base>.progress.md ai-docs/plans/<spec-base>.spec.md.state.md ai-docs/plans/ignored/
-> git add -u && git commit -m "chore(plans): retire the run's state files before the push"
+> git add -u && git commit -m "chore(plans): убрать файлы состояния прогона перед push"
 > ```
 > Retire them **before the push**, not after: the PR diff must not carry them. While they are back in `ai-docs/plans/` they are visible to `⚡ First`'s probe again — a new `/task` started in that window hits the stale-file check, which is the accepted cost of the round trip.
 

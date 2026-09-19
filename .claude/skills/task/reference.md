@@ -254,9 +254,9 @@ The Step 12 sub-step 5 parser specification lives in a dedicated reference file:
 
 The `gh pr create` body (SKILL.md Step 12 item 10) carries these sections, in this order:
 
-- **Summary** — what landed and why.
-- **Tracking** — `Closes #N` when the PR fully resolves the tracking issue, `Refs #N` when it resolves it partially; omit the section when the spec carries `Tracked in: none`.
-- **Test plan** (checklist: one line per AC, plus the gate results by name) — including the two results of `ai-docs/task-run-schema.md` § *Step-12 verification block* (sub-step 5a).
+- **`## Суть`** — what landed and why.
+- **`## Трекинг`** — `Closes #N` when the PR fully resolves the tracking issue, `Refs #N` when it resolves it partially; omit the section when the spec carries `Tracked in: none`.
+- **`## План проверки`** (checklist: one line per AC, plus the gate results by name) — including the two results of `ai-docs/task-run-schema.md` § *Step-12 verification block* (sub-step 5a).
 
 ## Step 12 — step-skip gate (recurrence history)
 

@@ -21,6 +21,19 @@
 # it (git checkout -- <file>): a guard that blocks the recovery is worse than
 # no guard.
 #
+# The Bash side reads the instruction path in a write TARGET -- a redirect
+# operand, a sed -i / tee / cp / mv operand, an open() or Path() argument --
+# and not anywhere in the command. The must-allow fixtures therefore include
+# the two shapes that a path-anywhere reading refused during one /task run:
+# an owner answer written into the interview state file, and an acceptance-row
+# replacement written into the spec, each carrying an instruction file's name
+# in the TEXT being written. That text is this flow's normal subject matter --
+# a finding quotes the standing rule it is about -- so refusing it refuses the
+# flow. What the target reading cannot separate is a quoted opener: a heredoc
+# whose body spells open() over an instruction file reads exactly like the
+# call itself, and the last fixture pins that residue, which the block message
+# names and routes to the Write tool.
+#
 # Verdict convention: a body exits 2 to block a tool call. Any other exit
 # status means the call proceeds.
 #
@@ -117,6 +130,39 @@ sed -n '132,141p' .claude/agents/spec-writer.md
 REAL
 )
 
+# The two shapes refused during the 2026-09-18 run. Neither writes an
+# instruction file; each quotes one in the text it writes.
+state_answer=$(cat <<'REAL'
+python3 - <<'PY'
+import pathlib
+p = pathlib.Path('ai-docs/plans/2026-09-08-fixture.spec.md.state.md')
+s = p.read_text(encoding='utf-8')
+s = s.replace('<pending>', '**A:** AGENTS.md > Code Style already decides this; keep the row.')
+p.write_text(s, encoding='utf-8')
+PY
+REAL
+)
+
+spec_row=$(cat <<'REAL'
+python3 - <<'PY'
+import pathlib
+p = pathlib.Path('ai-docs/plans/2026-09-08-fixture.spec.md')
+s = p.read_text(encoding='utf-8')
+s = s.replace(old_row, '| AC4 | struck: .claude/agents/spec-writer.md Rule 8 forbids it |')
+p.write_text(s, encoding='utf-8')
+PY
+REAL
+)
+
+# A heredoc that quotes an opener over an instruction file: the residue of
+# reading command text, pinned so a later reading change shows up here.
+quoted_opener=$(cat <<'REAL'
+cat >> tmp/notes.md <<'EOF'
+The refused command was: open('AGENTS.md','w').write(rule)
+EOF
+REAL
+)
+
 # --- Bash side, guard armed (state=live) ---
 check_bash BLOCK live "$real_write"
 check_bash BLOCK live "sed -i 's/foo/bar/' .claude/agents/spec-writer.md"
@@ -145,6 +191,11 @@ check_bash ALLOW live "cat >> ai-docs/learnings.md <<'EOF'
 EOF"
 check_bash ALLOW live "rm -f tmp/gate.log; grep -c '' .claude/agents/spec-writer.md"
 check_bash ALLOW live "sed -i 's/round: 1/round: 2/' ai-docs/plans/2026-09-08-fixture.spec.md.state.md"
+# --- Bash side: the write TARGET decides, not the text being written ---
+check_bash ALLOW live "$state_answer"
+check_bash ALLOW live "$spec_row"
+check_bash ALLOW live "python3 -c \"open('ai-docs/plans/2026-09-08-fixture.spec.md','w').write('see AGENTS.md > Code Style')\""
+check_bash BLOCK live "$quoted_opener"
 # --- Bash side, guard disarmed by the in-flight marker (Steps 8-12) ---
 check_bash ALLOW inflight "$real_write"
 check_bash ALLOW inflight "sed -i 's/foo/bar/' .claude/agents/spec-writer.md"
