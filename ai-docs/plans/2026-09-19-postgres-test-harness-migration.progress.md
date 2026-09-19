@@ -8,7 +8,7 @@ _Updated: 2026-09-19 10:22_
 **Last build:** PASS
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 8 — Group A complete; Design Amendment in flight for the testcontainers version
+**current_step:** Step 7 — design-review round 2 returned ITERATE; design amendment round 5 in flight
 **last_passed_gate:** make verify (full, re-run by the orchestrator) | 2026-09-19T10:50:30Z | 2f1dfec
 **entry_args:** 13
 
@@ -48,6 +48,9 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 8 (orchestrator)**: re-ran the gates rather than accepting the delegate's green — `cargo build --workspace --all-targets` exit 0 with 0 errors, and `make verify` exit 0 with 0 errors and every `test result` line ok (5 database trials, 1 unit test). Compiler diagnostics for `SqlSafeStr`/`sqlx::query` seen before the re-run were stale intermediate state, not a defect in the committed tree.
 - **Step 8 (orchestrator)**: branch pushed to `origin` on the first group return, per the visibility rule; no pull request exists yet.
 - **Step 8 (Design Amendment)**: the `testcontainers` 0.27.3 deviation is real and verified independently against the live registry — `testcontainers-modules` 0.15.0 declares `testcontainers ^0.27.0` for both normal and dev kinds, and 0.15.0 is the newest published. The owner chose amendment WITH a re-run of design-review (answer 5.1), declining the per-instance exemption.
+
+- **Step 7 (round 2)**: design-review returned ITERATE — two major, two minor, four recommendations. Both majors re-verified by the orchestrator against the shipped code before routing: the design's `vector_extension` description contradicts `crates/core/src/lib.rs:27` (`"vector extension"`), and `container_starts` is initialised to 1 at `crates/core/tests/support/mod.rs:74` and never mutated anywhere under `crates/` (grep empty against a matching constructed control over 6 files), so `crates/core/tests/database.rs:196` asserts a condition with no reachable failure mode.
+- **Step 7 (round 2)**: the dead-assertion finding implies a `.rs` fix to files Group A already committed. Routed design-first, because the design's choice between incrementing at the start site and striking the bookkeeping half is what decides which code fix is correct.
 
 ## GO notes
 
