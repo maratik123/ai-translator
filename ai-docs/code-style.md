@@ -22,7 +22,7 @@ Rust, under `crates/<crate>/src/` for code and `crates/<crate>/tests/` for integ
 
 ## Comments
 
-A comment says what the thing is and states its contract. It names nothing outside itself that moves when this tree moves — no markdown path, no repository path, no issue number outside the tracking form, no design-section number, no URL, no crate-qualified symbol of this workspace outside the comment's own crate. The rule, its classes and its exemptions are in [`doc-convention.md`](doc-convention.md) § DOC-4, and `make comment-refs` decides the lexical half over `*.rs`, `*.sh`, `*.sql`, `*.yml`, `*.yaml`, `Makefile`, `.gitignore` and `.githooks/**`.
+A comment says what the thing is and states its contract. It names nothing outside itself that moves when this tree moves — no markdown path, no repository path, no issue number outside the tracking form, no design-section number, no URL, no crate-qualified symbol of this workspace outside the comment's own crate. The rule, its classes and its exemptions are in [`doc-convention.md`](doc-convention.md) § DOC-4, and `make comment-refs` decides the lexical half over the set its language map names — `*.rs`, `*.sh`, `*.bash`, `*.sql`, `*.yml`, `*.yaml`, `*.mk`, and any file named `Makefile` or `.gitignore` — selected by name and never by directory.
 
 A doc comment opens with a summary sentence about the item, in the third person. A fallible function carries `# Errors`; one that can panic carries `# Panics`; anything `unsafe` carries `# Safety`. `make doc-check` denies rustdoc warnings, so a broken intra-doc link is a failing gate, not a cosmetic one.
 

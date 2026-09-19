@@ -10,8 +10,11 @@ gate; `make comment-refs` enforces the mechanical half of the reference ban; the
 DOC-1, DOC-2, DOC-3 and DOC-6 apply to every `.rs` file under a crate's `src/`. Test code
 documents only what is non-obvious about the fixture.
 
-DOC-4 and DOC-5 apply to every comment in the **gated set**: `*.rs`, `*.sh`, `*.sql`, `*.yml`,
-`*.yaml`, `.gitignore`, `Makefile`, and everything under `.githooks/`. A comment is
+DOC-4 and DOC-5 apply to every comment in the **gated set**: `*.rs`, `*.sh`, `*.bash`, `*.sql`,
+`*.yml`, `*.yaml`, `*.mk`, and any file named `Makefile` or `.gitignore`. Membership is decided by
+the file's own name — the scanner's language map — and by no directory: nothing is gated for sitting
+under `.githooks/`, where the `.sh` files carry the logic and the extensionless hook is a symbolic
+link to one of them. A comment is
 a comment wherever its marker sits on the line — a trailing comment is in scope exactly as a
 line-leading one is.
 

@@ -142,14 +142,14 @@ Agent(subagent_type="self-review", prompt="
 ```bash
 git add <all changed files — list them explicitly, no -A>
 git commit -m "$(cat <<'EOF'
-[brief summary of what the review fixed]
+[краткая сводка: что починил ревью]
 
-Review findings addressed:
-- #N: description (severity)
+Разобранные находки ревью:
+- #N: описание (severity)
 - ...
 
-Deferred:
-- #N: description — reason
+Отложено:
+- #N: описание — причина
 EOF
 )"
 ```

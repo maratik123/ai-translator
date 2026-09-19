@@ -163,9 +163,9 @@ git add .claude/skills/ai-audit/SKILL.md \
  .claude/agents/learnings-escalation-audit.md \
  <any other files actually edited>
 git commit -m "$(cat <<'EOF'
-chore(instructions): audit + fix [phase1|phase2|both]
+chore(instructions): аудит и починка [phase1|phase2|both]
 
-[brief summary of fixes by category — A/B/C/... from the checklist]
+[краткая сводка правок по категориям — A/B/C/... из чеклиста]
 EOF
 )"
 ```

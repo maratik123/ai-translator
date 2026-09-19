@@ -261,7 +261,7 @@ Number all proposals. Let user choose.
 
    b. **`Superseded by:` backfill (when Commit A reverses, refines, generalizes, subsumes, or withdraws a prior entry's rule).** Identify the PRIOR entry whose `Rule:` text Commit A invalidates. Add or update its `**Superseded by:**` line. Format: `[ref] — [one-line reason]` where `[ref]` is a `YYYY-MM-DD` date (later entry; disambiguate with quoted slug when multiple entries share the date), `PR #N`, or both comma-separated. If the prior entry has no `**Superseded by:**` line yet, INSERT one on its own line immediately after the entry's `**Escalated?**` line. Write to the PRIOR entry's `Superseded by:`, never to the new entry.
 
-   Do not touch any other line of any entry. Commit message: `chore(learnings): backfill Escalated? / Superseded by: for entries <date1>, <date2>, ...` (drop the `Superseded by:` half when no supersession applies).
+   Do not touch any other line of any entry. Commit message — Russian, like every commit message here (CRITICALLY 1): `chore(learnings): проставить Escalated? / Superseded by: для записей <дата1>, <дата2>, ...` (drop the `Superseded by:` half when no supersession applies).
 
    This edit is authorised by **AGENTS.md § Learning Log → Boundary rule 1 → Exception** (`Escalated?` and `Superseded by:` fields, Subagent-driven only). All other lines of the entry remain immutable.
 
