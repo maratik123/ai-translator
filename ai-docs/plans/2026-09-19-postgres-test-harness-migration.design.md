@@ -541,7 +541,7 @@ A commit that stages only documents is unaffected, which is most of a run.
 
 | # | Task | Files | Depends on |
 |---|------|-------|------------|
-| 1 | **The dependency set, the first migration, and the embedded migrator.** Add the workspace dependency entries with `cargo add`, never a hand-edited lockfile, taking the container crate from the 0.27 series rather than the newest release (the Postgres module's bound decides it and the resolver refuses the alternative — **D14**). Rewrite the root manifest's now-false comment about the empty table (D12). Declare `sqlx` as a normal dependency of `reader-core` with default features off and the set D7 fixes, and the dev-dependencies the next subtask needs — the container crate, its Postgres module, the runner and the async runtime — so the manifest is written once. Add `crates/core/migrations/0001_vector_extension.sql` carrying the single `CREATE EXTENSION IF NOT EXISTS vector` statement and **no comment line** (D6 — the loader keeps the file's bytes verbatim, so a comment would land inside both the embedded text and the checksum), and expose the embedded migrator from `crates/core/src/lib.rs` with a doc comment that obeys the reference ban and KD-19 (§ *What the gates will read afterwards*). Add the `#[cfg(test)]` module beside it asserting the embedded set against AC2 — the lowest-versioned migration is version 1, described **`vector extension`** (the loader replaces the file name's underscores with spaces, so the description is never the file name's spelling — § Test Design carries the measurement), no migration carries a lower version, and its statement is exactly the one above. That test needs no container and is the half of AC2 that a machine without a runtime can still check. | `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` | — |
+| 1 | **The dependency set, the first migration, and the embedded migrator.** Add the workspace dependency entries with `cargo add`, never a hand-edited lockfile, taking the container crate from the 0.27 series rather than the newest release (the Postgres module's bound decides it and the resolver refuses the alternative — **D14**). Rewrite the root manifest's now-false comment about the empty table (D12). Declare `sqlx` as a normal dependency of `reader-core` with default features off and the set D7 fixes, and the dev-dependencies the next subtask needs — the container crate, its Postgres module, the runner and the async runtime — so the manifest is written once. Add `crates/core/migrations/0001_vector_extension.sql` carrying the single `CREATE EXTENSION IF NOT EXISTS vector` statement and **no comment line** (D6 — the loader keeps the file's bytes verbatim, so a comment would land inside both the embedded text and the checksum), and expose the embedded migrator from `crates/core/src/lib.rs` with a doc comment that obeys the reference ban and KD-19 (§ *What the gates will read afterwards*). Add the `#[cfg(test)]` module beside it asserting the embedded set against AC2 — the lowest-versioned migration is version 1, described **`vector extension`** (the loader replaces the file name's underscores with spaces, so the description is never the file name's spelling — § Test Design carries the measurement), and its statement is exactly the one above. AC2's second half — that nothing precedes that migration — is carried by the version assertion and gets no predicate of its own, for the reason § Test Design gives. That test needs no container and is the half of AC2 that a machine without a runtime can still check. | `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` | — |
 | 2 | **The container harness and the database-backed test target.** Declare the target with its own `main` in `crates/core/Cargo.toml` (`harness = false`). Write the support module under `crates/core/tests/support/`: start one container from the overridden image (D4), build one admin pool over connect options assembled field by field with TLS disabled and no password (D5), hand out a freshly created and migrated database per caller, and expose the shutdown `main` drives through its runtime, whose result is reported rather than discarded (D3). Hold the container in a take-once slot and hand the harness out as an `Arc` — never a leak, never a `static` — with the per-database name built from a fixed prefix and an atomic counter so it is unique under the runner's default parallelism (D2). Write the test target: `main` builds a multi-threaded runtime, starts the harness, registers the trials § Test Design names — each closure taking an `Arc` clone and a runtime-handle clone — runs them, shuts the harness down after `run` returns, and exits with the runner's verdict — raised to a failing status when the shutdown itself failed, never replaced by it, and never carried out of `main` by a panicking call (D3). | `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs` | 1 |
 | 3 | **Correct the statements this diff falsifies (D12).** Rewrite the tolerance paragraph's reason clause and its twin in the ratchet script's header so both say what is now true — a crate carries a test, and the tolerance still has no drift series behind it — leaving the tolerance value and the script's conditional branches untouched. Rewrite the file-size bands' justification in the build entry point's comment and in its twin in the code-style reference to the same judgement: the crates carry their first code, and the bands still wait for a real distribution, so they do not move. Leave the condition-governed gate-script sentences **D12** enumerates alone, and note that they are not all outside this file set: the dependency-direction gate's sentences live in a script no subtask here touches, while the ratchet's no-executable-lines branch comment shares a file with the tolerance header and is left untouched **inside** it, so the rewrite there is scoped to the header and stops at it. Both the build entry point and the ratchet script are in the comment-reference gated set — the first by file name, the second by extension — so every comment rewritten in either carries no markdown path, no section sign, no decision anchor and no acceptance-criterion id, exactly as a Rust comment must. The prose being replaced in both already carries none of those, so the ban costs nothing where it is remembered and a commit where it is not. | `AGENTS.md`, `.githooks/coverage-ratchet.sh`, `Makefile`, `ai-docs/code-style.md` | 2 |
 | 4 | **Record the harness decision where it will be looked for.** Add a key-decision row, in the page's own shape — decision, why, consequence, source — numbered after the last row the page carries, stating that the database-backed target owns its `main` so that one container serves the binary *and* is removed when the run ends, and that `#[sqlx::test]` is not the vehicle because its only connection source is the variable the suite is forbidden to read. The *consequence* field carries what a later test author inherits: a trial is registered in `main`, an unregistered one is a denied lint rather than a silent pass, and the lift threshold D9 fixes. The row also records that the corpus row naming the old mechanism was amended in the same pull request on the owner's authorisation, so a later reader meets the amendment and its reason together. The *source* field is backticked prose, not a markdown link, and names this design at the path it carries after Step 12 — `ai-docs/plans/done/2026-09-19-postgres-test-harness-migration.design.md` § D1–D3 and § D13 — because the pre-retirement path is stale before the pull request opens. | `ai-docs/key-decisions.md` | 2 |
@@ -563,7 +563,11 @@ creating no subtask. Nor does the review round after it: correcting the migratio
 making AC4's start count falsifiable (**D11**) both land inside file sets subtasks 1 and 2 already
 own, so `M`, the grouping and the change-type homogeneity are unchanged again. The code correction
 D11 requires is a change to files Group A has already committed, and the orchestrator routes it — this
-design decides what the correct fix is, and creates no subtask to carry it.
+design decides what the correct fix is, and creates no subtask to carry it. The amendment after it
+moves nothing either: striking the prescription of an assertion that cannot fail rewrites § Test
+Design and subtask 1's contract, and the line it retires sits in a file subtask 1 already owns — so
+`M`, the grouping and the change-type homogeneity are unchanged once more, and the orchestrator
+routes that code removal exactly as it routed D11's.
 
 - **Entry into Group A:** spawn `/context-reset` per `.claude/skills/context-reset/SKILL.md`
   § Compaction recovery (re-entry). The first group takes a handoff exactly as every later one does.
@@ -640,10 +644,10 @@ carries its own measurement where it is used.
   stripping the type suffix and replacing underscores with spaces, so the file `0001_vector_extension.sql`
   yields a description with a space and never the file name's spelling
   `[measured sqlx-core@0.9.0 · awk 'NR>=217 && NR<=223 {print NR": "$0}' sqlx-core-0.9.0/src/migrate/source.rs → ':220: let description = parts[1]' / ':221: .trim_end_matches(migration_type.suffix())' / ':222: .replace('_', " ")'; and the suffix for a simple migration is ".sql" per MigrationType::suffix in sqlx-core-0.9.0/src/migrate/migration_type.rs:61]` —
-  and a statement whose trimmed text is exactly `CREATE EXTENSION IF NOT EXISTS vector`; and no
-  migration in the set carries a version below it. The statement assertion is on the exact text, not
-  on a substring: a substring assertion passes for a file that grew a second statement, which is the
-  half of AC2 that matters. `trim` is there for the file's trailing newline and for nothing else — the
+  and a statement whose trimmed text is exactly `CREATE EXTENSION IF NOT EXISTS vector`. The statement
+  assertion is on the exact text, not on a substring: a substring assertion passes for a file that grew
+  a second statement, which is the half of AC2 that matters. `trim` is there for the file's trailing
+  newline and for nothing else — the
   loader keeps every other byte, comments included (D6), so **if the statement assertion goes red the
   repair is the migration file, never the assertion.** Weakening it to a substring, or teaching it to
   strip comment lines, hands back exactly the property it exists to hold.
@@ -655,6 +659,17 @@ carries its own measurement where it is used.
   carve-out forbid, and which § Risks names as this task's first risk. If a version or description
   assertion disagrees with the file name, the correct move is to find out which of the two is wrong and
   say so, never to rename a migration that has been applied anywhere `[derived → AC2]`.
+
+  **AC2's second half — that no other migration precedes this one — is carried by the version
+  assertion itself, and no separate predicate is written over the set.** The migration under
+  assertion is the set's minimum, so asserting its version is `1` *is* the statement that nothing
+  precedes it; a predicate holding every migration against that same minimum is true of any set a
+  migrations directory could hold, so it reports nothing about this one. The version, the
+  description and the statement are what AC2 rests on. The absence is deliberate rather than
+  forgotten: the shipped code carried exactly that predicate, and the owner ruled it out of the
+  design and out of the code together
+  `[answer 6.1: "Править без ревью. Дизайнер убирает предписание из § Test Design и подзадачи 1, исполнитель сносит мёртвую строку, повторный design-review для этой правки не запускается — точечное освобождение владельца."]`
+  `[derived → AC2]`.
 - **Why it lives here and not in the container target:** it asserts what the *repository* embeds, not
   what a database did with it, so it must stay runnable on a machine with no container runtime
   `[derived → AC2]`.
@@ -771,3 +786,25 @@ pre-commit hook runs on the coverage-moving ones. Both now need a reachable sock
   state file persists it, anchored as such in the spec, rather than a spec-side choice of how. The
   criteria themselves are stated as outcomes: AC3 says a database of its own with migrations applied,
   and names no vehicle, which is why the substitute in D1 satisfies it rather than evading it.
+- **Whether the harness should name the assertion whose failure mode is unreachable — OPEN, and
+  deliberately not decided in this design.** The instances this run produced, each true of every
+  state the program could reach, were these: AC4's start count, compared against a value nothing
+  incremented (corrected in **D11**); the concurrency trial's distinctness check, run over the
+  names the harness itself had handed out rather than over what the server reported (corrected in
+  the review round that moved it to `current_database()`); and the migrator test's comparison of
+  every migration against the set's own minimum, which the owner ruled on in `[answer 6.1]` and
+  which § Test Design now records as deliberately absent. What the harness already names is
+  adjacent but not this: a *guard* whose fixtures do not flip, and the test shapes it names — a fixture
+  where the branches coincide, and a test that hand-builds its subject instead of going through
+  the wiring that constructs it
+  `[measured 425b81b:AGENTS.md:356,358 · grep -n 'tautological test' AGENTS.md → ':356:' the guard-fixture sentence; grep -n 'a fixture configured where the two branches coincide' AGENTS.md → ':358:' the sentence naming the failure modes that recur]`.
+  A predicate that cannot report false is named on none of the harness pages a test author reads
+  `[measured 425b81b:AGENTS.md,ai-docs/rust-test-conventions.md,ai-docs/code-style.md,ai-docs/doc-convention.md,.claude/rules/ast-index.md · grep -rniI over the patterns "cannot fail", "always true", "true by definition", "no reachable failure", "cannot report false", "vacuous", "trivially true", "dead assertion" and "never fail" → empty on every pattern over those files, while the same patterns over a constructed control file carrying each phrase matched every one, so each pattern ran]`.
+  **No decision row is written for it, and the omission is the judgement rather than an
+  oversight.** The subject is a property of test assertions, not of this task's harness: a rule
+  stated here would bind a design whose subtasks are all committed, and would be filed where the
+  next task does not look. The surface that fits it is the harness — `AGENTS.md`
+  § *Test Conventions* or `ai-docs/rust-test-conventions.md` — and the route to it is the
+  owner's, through `ai-docs/harness-gaps.md` and `/improve`, never a designer's own edit
+  (`AGENTS.md` § *Learning Log* Boundary rule 2). It is carried to the owner as a follow-up and
+  acted on nowhere in this task.
