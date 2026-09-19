@@ -8,13 +8,13 @@ _Updated: 2026-09-19 12:01_
 **Last build:** PASS
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 9.5 — docs updated
+**current_step:** Step 10 — self-review APPROVE (Round 2)
 **last_passed_gate:** make verify (full) + per-AC sweep | 2026-09-19T12:06:09Z | 14b60ac
 **entry_args:** 13
 
 ## Next action
 
-**Do this immediately:** Step 10 — spawn `self-review` over the whole branch diff.
+**Do this immediately:** Step 12 — finalise INDEX.md, move the plans to `done/`, telemetry, commit, retire the state files, open the pull request.
 
 ## Subtasks
 
@@ -102,6 +102,9 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 11 (R1-1 closed)**: the design prescription was struck and the dead `assert!` removed. Removing it dropped workspace coverage, because the assertion's lines were covered while verifying nothing — the ratchet rewarding the exact shape a harness-gap entry written an hour earlier had predicted it rewards.
 - **Step 11**: that removal then exposed a live defect in the ratchet itself. It compares a full-precision figure and records a half-up-rounded one, so at a measured 84.61538 it wrote 84.62 and blocked its own next evaluation, printing both sides as the same rounded number. Repaired by recording 84.61; filed, with the observation that the next commit staging a Rust file will re-raise and re-block until the script is fixed.
 
+- **Step 10 (round 2)**: APPROVE. The round's load-bearing result is that R1-1's removal left no hole — a migration planted at version 0 made the surviving version assertion fail with `left: 0`. The reviewer's FIRST run of that probe came back green and it read that green correctly, as a fact about the build rather than the guard: `sqlx::migrate!()` registers no rebuild dependency on the migrations directory, so the binary still held the old embedded set until the source was touched.
+- **Step 10 (round 2)**: `make cover-ratchet` is NOT part of `make verify` — CI runs it as its own job, so it has to be run separately before the pull request. Noted because the ratchet defect filed this run makes that separate run the one that would catch a re-raise.
+
 ## Key discoveries (don't re-investigate)
 
 - `#[sqlx::test]` has exactly one connection source: `dotenvy::var("DATABASE_URL")` at `sqlx-postgres-0.9.0/src/testing/mod.rs:42` and `:93`, the only two environment reads in that file. The attribute parser accepts `fixtures`, `migrations`, `migrator` and nothing else — catch-all error text at `sqlx-macros-core-0.9.0/src/test_attr.rs:298`.
@@ -131,6 +134,12 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 | R1-4 | 1 | minor |  fixed@54debb3 | Decisions log Step 8 red observation 3 vs `crates/core/tests/database.rs:157-165`. The recorded mutation (counter short-circuited to id `0`) made the trial fail at the harness's `CREATE DATABASE` (`database "reader_core_test_0" already exists`), not at the trial's own isolation assertions, so those assertions have not been shown to have a reachable failure mode. A sharper mutation reaches them: drop `.database(database)` from `connect_options` at `crates/core/tests/support/mod.rs:150-157`, which makes both pools report the same `current_database()`. The trial did fail, so nothing is cosmetic-and-green; the record is weaker than it reads |
 | R1-5 | 1 | — | accepted@1 — examined, not a defect | `sed -n '226,266p' crates/core/tests/database.rs` — the early return at `:255-263` drops the remaining `JoinHandle`s, detaching rather than cancelling those tasks. Test-position code on an already-failing path; every task is awaited on the success path, its error propagated with `??` and its panic surfaced through `JoinError`. All four concurrency-ownership questions answered |
 | R1-6 | 1 | — | accepted@1 — out of scope for this diff; a tooling hazard for agent-authored probes, hand to `ai-docs/harness-gaps.md` | `command -v grep; grep --version \| head -1` → **ugrep 7.8.4**, shadowing GNU grep 3.12 at `/bin/grep`. Against a constructed driver-URL line, a single-scheme pattern of the credential shape matches and a **four-way alternation** of the same shape returns *nothing* — no error, no diagnostic, just empty — while `/bin/grep` matches it. The failure is silent, so any sweep an agent writes in that alternation shape reports the clean answer for every possible tree. **The `PostToolUse` secret-leak hook is NOT affected and was wrongly implicated in this row's first draft: it fired on the draft itself and refused the write, which is a live demonstration that its own runner resolves a `grep` that handles the pattern.** The lesson is the probe AXIOM's, not the hook's — a `grep` result in the agent's Bash shell is evidence about that shell until a control has been seen to match, which is what caught this review's own credential sweep before its clean output was believed |
+| R2-1 | 2 | minor | accepted@2 — below severity floor | `/bin/grep -n 'fn embedded_migrations_satisfy_ac2' crates/core/src/lib.rs` → `:15`. The name carries an acceptance-criterion id instead of the behaviour, against `AGENTS.md` § *Test Conventions* ("Test names describe behaviour"). The referent retires to `ai-docs/plans/done/` at Step 12, leaving a name pointing at nothing. **Not a Design Amendment trigger:** `/bin/grep -n 'satisfy_ac2' <design>` and the same for `embedded_migrations` both exit 1, so the design prescribes no name and the repair is code-only. Not gated either — `make comment-refs` is green on this file and the token is an identifier, not a comment. A behaviour-describing replacement: `first_migration_is_the_vector_extension` |
+| R2-2 | 2 | minor | accepted@2 — below severity floor | `printf 'SELECT 1\n' > crates/core/migrations/0000_earlier.sql; cargo test -p reader-core --lib` → **exit 0**, `test result: ok. 1 passed`, against a migrations directory that now carries a version `0`. Then `touch crates/core/src/lib.rs; cargo test -p reader-core --lib` → **exit 101**, `assertion left == right failed: the lowest-versioned migration is version 1` with `left: 0`, at `crates/core/src/lib.rs:22`. So `sqlx::migrate!()` registers no rebuild dependency on `crates/core/migrations/` on this toolchain: a migration added without touching a `.rs` file is invisible to the AC2 guard in an incremental build, and the first run above is an instrument failure rather than a green subject. No CI hole — every CI job builds from a clean checkout. Probe file removed, `git status --porcelain` empty, `git diff --name-only HEAD --` empty, re-run exit 0. **The same probe establishes the positive half:** with the recompile forced, `assert_eq!(lowest.version, 1)` at `:22-25` goes RED on a preceding migration, so R1-1's removal of the dead predicate left AC2's "nothing precedes it" half genuinely covered, exactly as the amended design claims |
+| R2-3 | 2 | minor | accepted@2 — out of this spec's scope; the script repair is the owner's call and the defect is already filed | `make cover-ratchet` → **exit 0**, `coverage-ratchet: 84.62% >= 84.61% (a rise the pre-commit hook would have recorded)`; `jq -r '.data[0].totals.lines' tmp/coverage.json` → count 13, covered 11, percent 84.61538461538461. CI's Coverage-ratchet job is therefore green on this branch, and the recorded `84.61` is a value the measurement satisfies. The shipped state is still primed to self-block: `.githooks/coverage-ratchet.sh:170-175` compares `cur` at full precision while `:197` writes `rounded`, so the next commit staging a `.rs`, `.sql`, manifest or lockfile raises the file to `84.62` in raise mode and the commit after that is refused. Filed in `ai-docs/harness-gaps.md` with the correct repair (round down, or record `current`) |
+| R2-4 | 2 | — | accepted@2 — examined, not a defect | `crates/core/tests/support/mod.rs:133-147` — `shutdown` can panic at the `.expect()` on `:137` and carries no `# Panics` section. `awk 'NR==10' ai-docs/doc-convention.md` → "DOC-1, DOC-2, DOC-3 and DOC-6 apply to every `.rs` file under a crate's `src/`", and `# Panics` lives in DOC-3, so a file under `tests/` is outside that scope. The panic gate agrees by position rather than by luck: `/bin/grep -n 'EXCLUDED_DIRS' ai-docs/scripts/panic_calls.py` → `:46` excluding `tests/`, `benches/` and `examples/`, and `:67` matching every `#[cfg(test)]` span — so the `.expect()` at `crates/core/src/lib.rs:20` owes no `ai-docs/panic-index.md` row either, and `make panic-calls` exits 0 |
+| R2-5 | 2 | — | accepted@2 — examined, not a defect | `crates/core/tests/database.rs:77-81` — the `conclusion.has_failed()` branch R1-2's fix added is exercised by no test; reaching it needs a failing trial **and** a failing container removal in one run, inside a `harness = false` target's own `main`. Semantics re-read rather than assumed: `/bin/grep -n -A4 'fn exit_code' ~/.cargo/registry/src/*/libtest-mimic-0.8.2/src/lib.rs` → `:384-390`, `exit_code` returns `ExitCode::from(101)` exactly when `has_failed()`, and `:393-395`, `has_failed` is `num_failed > 0`. The branch therefore yields 101 when the trials already failed and 1 otherwise, which is what D3 decides and what the comment above it now says |
+| R2-6 | 2 | — | accepted@2 — examined, not a defect | `crates/core/tests/support/mod.rs:18-22` — `Error` is a boxed trait object rather than a typed error per failing operation. Test-position code, and the deviation is stated in the item's own doc comment rather than left implicit; `ai-docs/doc-convention.md:10-11` puts test code under "documents only what is non-obvious about the fixture", and no error of this type crosses a crate boundary |
 
 ## Files touched
 
@@ -227,6 +236,102 @@ agent's Bash shell does not. The claim was corrected here and in register row R1
 withdrawn in conversation. The residual item worth recording in `ai-docs/harness-gaps.md` is the
 tooling hazard for **agent-authored probes**, not a defect in the hook: nothing in this diff
 introduced it and nothing in this diff is affected, since D5 avoids the credential shape entirely.
+
+| # | File:line | Severity | Finding | Status |
+|---|-----------|----------|---------|--------|
+
+_No `blocker`/`major` row is open; per the findings-format rule the `minor` items ride along as
+register rows rather than table rows._
+
+## Self-Review (Round 2)
+
+**Verdict:** APPROVE
+
+**Spawn prompt.** Within the closed list — the invocation line, `Spec:`, `Design:`, `Progress:` and
+the commit range, nothing else. No `PROMPT-CONTAMINATION` finding.
+
+**What was checked.** The whole window `1b0b287..HEAD`, not the post-round-1 commits alone, with the
+register's scoping applied on top.
+
+*The four `fixed@` rows, each re-examined over the diff since its own sha.* **R1-1** (`fixed@e93c275`)
+— the predicate true by definition is gone from `crates/core/src/lib.rs`, gone from the design
+(`763b1b7` rewrites § Test Design and Decomposition subtask 1), and the exemption is real rather than
+asserted: the state file's `round: 6` answer is «Править без ревью… точечное освобождение владельца»,
+read from `ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md.state.md:86-89`. The fix
+is also *sufficient*, which is the half a prose read cannot settle — see the mutation below.
+**R1-2** (`fixed@54debb3`) — `crates/core/tests/database.rs:77-81` now keeps the runner's 101 when the
+trials already failed; `libtest-mimic-0.8.2/src/lib.rs:384-395` re-read to confirm `exit_code` is
+`ExitCode::from(101)` exactly when `has_failed()`, so the branch matches D3 and the comment above it.
+**R1-3** (`fixed@abefca8`) — rows G8–G15 now carry round 4, and each cited resolution commit exists
+and touches the file it claims (`9dec5b1` the trial, `040dcdb` the design, `2b597a9` the AC row).
+**R1-4** (`fixed@54debb3`) — the sharper mutation is recorded at Step 10 with both isolation trials
+failing at their own assertions; no `.rs` moved since that sha, so the row's subject is closed.
+The two `accepted@1` rows were not re-raised: nothing has changed for either.
+
+*The mutation that settles R1-1, performed rather than reasoned about — and its instrument failure
+reported, not hidden.* Planting `crates/core/migrations/0000_earlier.sql` and running
+`cargo test -p reader-core --lib` gave **exit 0, `test result: ok. 1 passed`** — a green that is
+evidence about the build, not about the guard: `sqlx::migrate!()` registers no rebuild dependency on
+the migrations directory, so the binary still held the old embedded set. After
+`touch crates/core/src/lib.rs` forced the recompile, the same tree gave **exit 101**,
+`assertion left == right failed: the lowest-versioned migration is version 1`, `left: 0`, at
+`crates/core/src/lib.rs:22`. So the surviving `assert_eq!(lowest.version, 1)` does carry AC2's
+"nothing precedes it" half, and the removed predicate left no hole. Probe file deleted,
+`git status --porcelain` empty, `git diff --name-only HEAD --` empty, re-run exit 0. The staleness
+itself is recorded as R2-2; CI builds clean, so it is not a CI hole.
+
+*Gates re-run against the shipped tree, exit codes read apart from stdout.* `make verify` **exit 0**
+— every sub-target, `test result: ok` on all seven binaries, 1 unit test and 5 database trials, zero
+`error`/`warning` lines in `tmp/sr2-verify.log`. `make cover-ratchet` **exit 0** (it is *not* part of
+`verify` — `Makefile:40` omits it — so it was run separately, since CI runs it as its own job):
+`84.62% >= 84.61%`. `shellcheck .githooks/coverage-ratchet.sh` **exit 0**, the one `*.sh` this diff
+touches. The design carries no `AC<N> verified by:` line — `/bin/grep -nE 'AC[0-9]+ verified by'`
+over it exits 1 while the same pattern matches a constructed control, so § 2's re-run obligation has
+no commands to execute and was discharged over the design's `[measured …]` claims instead.
+
+*Design conformance.* The round-1 GO notes G1–G7 all resolve at `d29e0e4`, and
+`git merge-base --is-ancestor d29e0e4 0d40e6a` confirms that fold precedes the first implementation
+commit. G8–G15 fold after it, which the design's own § Handoff paragraph decides and the owner's
+cap-raise authorises; the test is whether the design is stale now, and it is not — G8's prescription
+(`current_database()` asked of the server, applied versions compared against the embedded migrator)
+is what `crates/core/tests/database.rs:230-283` does. The `763b1b7` amendment and the shipped
+`crates/core/src/lib.rs` agree line for line.
+
+*Claims re-derived rather than read* (the diff is predominantly prose). `tmp/coverage.json` totals are
+`count 13, covered 11, percent 84.61538461538461`, so the harness-gaps ratchet entry's figure is
+exact. `.githooks/coverage-ratchet.sh` does compare `cur` at `:170-175` and write `rounded` at `:197`,
+so that entry's diagnosis is the script's, not a guess. `grep` here is a shell function and
+`/bin/grep` is GNU 3.12, as the ugrep entry says — every sweep in this round was run through
+`/bin/grep` for that reason. `AGENTS.md:356` carries "tautological test" and `:358` the two named
+failure modes, so the design's `[measured 425b81b:AGENTS.md:356,358 …]` tag resolves.
+
+*Also checked.* Domain invariants — the only one this diff can reach is the forward-migration rule:
+`git diff --name-status` over `*.sql` returns a single `A`, no `M`. Credential sweep over all 1829
+added non-lockfile lines, six patterns run one at a time through `/bin/grep`, each first shown alive
+against its own constructed control: three hits, all inspected and all false (`subtask-1`/`subtask-2`
+against `sk-`, and the harness-gaps entry quoting its own `password=hunter2` control line). No
+`let _ = <Result>` and no `.unwrap()` in the new Rust, the pattern shown matching a control. No
+`#[allow(…)]`. File sizes 38 / 158 / 285 lines, far inside the bands. No `⚠️ Objected` row exists, so
+§ 7 is vacuous. Scope — every path in the diff is either a decomposition file or mandated by a
+standing rule; `ai-docs/context-status.md` was confirmed present in the base commit, so it is an
+append to a history surface and not a new artefact.
+
+**Findings.** No `blocker` or `major` row clears the severity floor, so none is open and the verdict
+is APPROVE. **3 `minor` items**, recorded in the register rather than as table rows, in:
+`crates/core/src/lib.rs` (the AC-id test name, R2-1), `crates/core/migrations/` with
+`crates/core/src/lib.rs` (the stale-embedded-set hazard, R2-2), and `ai-docs/coverage-ratchet.txt`
+with `.githooks/coverage-ratchet.sh` (the primed self-block, R2-3). None is a Design or Spec Amendment
+trigger — R2-1's name is prescribed nowhere in the design, and R2-2 and R2-3 are properties of
+`sqlx` and of a gate script, not of a recorded decision. Three further items were examined and ruled
+not-a-defect (R2-4 to R2-6): the absent `# Panics` on `shutdown` is outside DOC-3's `src/`-only scope,
+the new `has_failed()` branch is untestable by construction and matches D3, and the boxed harness
+error is test-position and documented as such.
+
+**AC5 remains the one criterion this review cannot discharge**, and that is the design's own routing
+rather than a gap: it is answered by the CI run on the pull request that does not exist yet. What
+*can* be checked here was: `.github/workflows/ci.yml` reaches the Test and Coverage-ratchet jobs
+through the `rust` filter's `**/*.rs`, `**/*.sql`, `**/Cargo.toml` and `Cargo.lock` entries, all four
+of which this diff touches, so neither job can silently not-run on this pull request.
 
 | # | File:line | Severity | Finding | Status |
 |---|-----------|----------|---------|--------|
