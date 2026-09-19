@@ -197,10 +197,10 @@ trials across threads by default
 so trials run in parallel unless the operator passes a thread count. That default is kept — a harness
 that needed serialising would be a harness with a shared-state defect — and three things follow:
 
-- **Database names are unique by construction, not by hope.** The harness holds an atomic counter;
-  each request takes the next value with a fetch-and-add and builds the name from a fixed prefix and
-  that number's decimal digits. Nothing else reaches the statement, so the name is unique under any
-  thread count and no caller-supplied text is ever interpolated into `CREATE DATABASE`.
+- **Database names are unique by construction, not by hope.** The harness holds an atomic name
+  counter; each request takes the next value with a fetch-and-add and builds the name from a fixed
+  prefix and that number's decimal digits. Nothing else reaches the statement, so the name is unique
+  under any thread count and no caller-supplied text is ever interpolated into `CREATE DATABASE`.
 - **The runtime handle travels with the harness.** `main` builds a multi-threaded runtime and moves a
   clone of its handle into each trial beside the `Arc`; the trial body blocks on that handle. Blocking
   on a handle is legal from a thread that is not a runtime worker and refused from one that is, and
@@ -211,8 +211,10 @@ that needed serialising would be a harness with a shared-state defect — and th
 - **The shared path is exercised rather than assumed** (`AGENTS.md` § *Test Conventions*): § Test
   Design adds a trial that asks for several databases concurrently and asserts they are all distinct
   and all migrated. The harness spawns no task and owns no channel, so there is no cancellation path
-  to drive; what it shares is the counter, the admin pool and the take-once slot, and that trial —
-  with the parallel run behind it — is what drives them.
+  to drive; what several trials reach at once is the name counter and the admin pool, and that trial —
+  with the parallel run behind it — is what drives them. The take-once slot is shared too and is
+  deliberately absent from that list: D3 puts its single emptying in `main`, after the runner has
+  returned, so no trial ever contends for it and no trial stands as evidence about it.
 
 **D3 — The container is removed by an explicit call inside the async runtime, never by letting the
 handle drop outside one.** The destructor's helper resolves the current runtime handle before doing
@@ -319,8 +321,12 @@ Lifting now would create a member with one consumer, which is the opposite error
 
 **D10 — The socket is the environment's to name; the build entry point is not touched.** The container
 crate resolves its host from `DOCKER_HOST` ahead of every socket fallback — a `tc.host` entry in the
-user's `~/.testcontainers.properties` is the only source it consults first — and falls back to the
-platform default socket when the variable is unset
+user's `~/.testcontainers.properties` is the only source it consults first, and that file is read at
+all only under the crate's `properties-config` feature
+`[measured testcontainers@0.27.3 · grep -rn 'properties-config' testcontainers-0.27.3/src/ → ':42:' carrying the host-resolution note that the properties file is enabled by the properties-config feature, and in core/env/config.rs ':85: #[cfg(feature = "properties-config")]' and ':104: #[cfg(not(feature = "properties-config"))]'; and sed -n '/^\[features\]/,/^\[/p' testcontainers-0.27.3/Cargo.toml → 'default = ["ring"]', with 'properties-config = ["serde-java-properties"]' standing apart from it]`,
+which this workspace does not enable
+`[measured 807c4d8:Cargo.toml · cargo tree -e features -i testcontainers --workspace → the crate's only resolved feature lines being 'testcontainers feature "default"' and 'testcontainers feature "ring"']`
+— and falls back to the platform default socket when the variable is unset
 `[measured testcontainers@0.27.3 · awk 'NR>=44 && NR<=54 {print NR": "$0}' testcontainers-0.27.3/src/lib.rs → ':44: ##### The host is resolved in the following order:' over a list whose second entry is ':47: 2. "DOCKER_HOST" environment variable.' and whose fourth is ':49: 4. Read the default Docker socket path'; and grep -n 'pub const DEFAULT_DOCKER_HOST' testcontainers-0.27.3/src/core/env/config.rs → ':34: pub const DEFAULT_DOCKER_HOST: &str = "unix:///var/run/docker.sock";']`.
 The developer machine exports the variable already
 `[measured podman@5.8.2 · printf '%s\n' "$DOCKER_HOST" in a shell initialised from the user's profile → unix:///run/user/1000/podman/podman.sock, and ls -la /run/user/1000/podman/ → a socket named podman.sock]`,
@@ -361,14 +367,6 @@ Two consequences, both of which the code must honour:
   Both databases in that case are taken inside one trial, so a harness that started one container *per
   trial* would satisfy it. That is exactly the shape AC4 calls the failure — "not one per test" — and
   only the start count sees it. Neither check subsumes the other, which is why both are specified.
-
-*What the shipped harness does instead.* The counter is a harness field initialised to its expected
-value and never incremented, so the trial compares that value with itself
-`[measured 333d443:crates/core/tests/support/mod.rs:45,74,80-81 · grep -n 'container_starts' crates/core/tests/support/mod.rs crates/core/tests/database.rs → ':45: container_starts: AtomicU32,', ':74: container_starts: AtomicU32::new(1),', ':81: self.container_starts.load(Ordering::SeqCst)' and database.rs ':195: let starts = harness.container_starts();'; and a sweep for any mutation, grep -rnE 'container_starts *(\.fetch_add|\.store|\.swap|\+=)' crates/ → no output, over the 6 .rs files find crates -name '*.rs' reports, with a constructed control file carrying a fetch_add, a store and a += line matched by the same pattern]`,
-which makes the comparison at `crates/core/tests/database.rs:196` a branch with no reachable failure
-mode. The correction this decision requires is named in the dash that follows — a process-wide static,
-zero at rest, incremented at the start site — plus the red observation § Test Design now demands. It
-lands inside subtask 2's file set; **no new subtask is created for it.**
 
 **D12 — The statements this diff falsifies are corrected in the same pull request.** They fall into a
 definitive class and a judgement class, separated here so the judgement is visible rather than
@@ -679,11 +677,12 @@ Trials:
 - **`concurrent_requests_get_distinct_databases`** — the shared path the runner's default parallelism
   puts the harness on is driven rather than assumed (`AGENTS.md` § *Test Conventions*): one trial asks
   for several databases from concurrent tasks, joins them, and asserts every reported current-database
-  name is distinct and every one of them carries the migrations. It is the counter, the admin pool and
-  the creation path under contention that this drives — the parallel *run* exercises them too, but
-  only incidentally and only when the operator has not passed a thread count, which is not a property
-  a test may rest on. The harness spawns no task and owns no channel, so this diff opens no
-  cancellation path and none is asserted `[derived → AC3 and AC4]`.
+  name is distinct and every one of them carries the migrations. It is the name counter, the admin pool
+  and the creation path under contention that this drives — not the take-once slot, which only `main`'s
+  single shutdown reaches. The parallel *run* exercises those same three too, but only incidentally and
+  only when the operator has not passed a thread count, which is not a property a test may rest on.
+  The harness spawns no task and owns no channel, so this diff opens no cancellation path and none is
+  asserted `[derived → AC3 and AC4]`.
 
 ### Red observations required before the group's last commit
 
