@@ -35,7 +35,7 @@ What a later reader needs that the diff does not show:
   the two was retired as discharged. Nothing in the tree reads that configuration's values, so its
   fields were each read back against a source the change itself does not rewrite.
 
-## Postgres test harness and the vector-extension migration — the suite provisions its own database (#TBD-at-Step-12, 2026-09-19)
+## Postgres test harness and the vector-extension migration — the suite provisions its own database (#76, 2026-09-19)
 
 The milestone's first database task. It carries no schema: what it delivers is a live connection the
 suite starts for itself, plus one migration small enough that a single question to the server proves the
