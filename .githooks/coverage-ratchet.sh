@@ -21,9 +21,10 @@
 #
 # THE TOLERANCE IS ZERO, and that is a starting value, not a measurement. A
 # tolerance is the width of the suite's own run-to-run drift, and no drift
-# series has been run here yet: the crates the workspace holds are skeletons
-# and carry no test. The first drift this project actually observes is what
-# sets it — derived from a series, never from a single blocked commit:
+# series has been run here yet: a crate carries tests now, so there is a drift
+# to measure, and nobody has measured it. The first drift this project actually
+# observes is what sets it — derived from a series, never from a single blocked
+# commit:
 #
 #   for i in 1 2 3; do
 #     cargo llvm-cov --workspace --summary-only --json > "tmp/cov$i.json"
