@@ -64,3 +64,10 @@ An entry is a conduct correction or a validation of this project's own runs; a d
 **at:** 8c3d231
 **Kind:** correction
 **Escalated?** no
+
+### 2026-09-19 — process — claimed what an upstream PR "says" after querying only its title and state
+**What happened:** While verifying a delegate's design-blocking report, I ran `gh pr view 4050 --repo launchbadge/sqlx --json number,state,title,mergedAt` and then sent the delegate a correction asserting the PR "is not described upstream as adding a `var` argument" — a claim about the body, from a query that did not request the body. The delegate fetched it and refuted me: line 3 reads "Adds grouping by `env` and specification of environment variable names by `var` as macro arguments", and line 21 "Added `TestArgs::database_url_var`". The half of my check that matched the fields I actually read (OPEN, `mergedAt` null) was sound; the half about the description was an assertion over a field I had not fetched. The correction had already been sent to a delegate, so it cost the delegate a verification round.
+**Rule:** A claim about what an upstream issue or PR *proposes, says or is described as* requires the body in the query (`--json body`, plus comments where the resolution lives). Title and state answer "is it merged" and nothing else. Narrowing a query's field set and then making a claim of wider scope than those fields is the same failure as reading a coordinate off a range printer: the instrument answered a different question than the one the claim needs, and its output looks equally authoritative either way.
+**at:** e9bcfb4
+**Kind:** correction
+**Escalated?** no

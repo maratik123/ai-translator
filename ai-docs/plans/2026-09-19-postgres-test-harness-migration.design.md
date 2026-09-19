@@ -44,15 +44,17 @@ have to provide them, and each gap below was measured rather than recalled.
 forbidden to read.** The Postgres test driver reads it in both of its entry points, each time with a
 panicking expectation
 `[measured sqlx-postgres@0.9.0 · grep -n 'DATABASE_URL' sqlx-postgres-0.9.0/src/testing/mod.rs → ':42: let url = dotenvy::var("DATABASE_URL").expect("DATABASE_URL must be set");' and ':93:' the same line inside cleanup_test_dbs]`,
-and the attribute itself accepts only fixtures and a migrations source — its parsed argument struct
-holds `fixtures` and `migrations`, with the migrations option ranging over an inferred path, an
-explicit path, an explicit migrator and disabled
-`[measured sqlx-macros-core@0.9.0 · awk 'NR>=5 && NR<=26 {print NR": "$0}' sqlx-macros-core-0.9.0/src/test_attr.rs → ':6: struct Args {' with the fields fixtures and migrations, and ':20: enum MigrationsOpt {' with the variants InferredPath, ExplicitPath, ExplicitMigrator and Disabled]`.
+and the attribute accepts no argument that could carry one. Its parser recognises the keys
+`fixtures`, `migrations` and `migrator`, and rejects everything else with a message that enumerates
+them exhaustively
+`[measured sqlx-macros-core@0.9.0 · grep -n 'is_ident(' sqlx-macros-core-0.9.0/src/test_attr.rs → ':205: is_ident("fixtures")', ':242: is_ident("migrations")' and ':278: is_ident("migrator")'; and awk 'NR>=295 && NR<=300 {print NR": "$0}' on the same file → the catch-all arm at ':295' whose error text is: expected fixtures("<filename>", ...) or migrations = "<path>" | false or migrator = "<rust path>"]`.
+The last two are two spellings of one migrations source — `migrator` parses into the same option
+`migrations` does — and none of the three names a connection.
 The `sqlx.toml` setting that renames the variable is consumed by the compile-time query macros and by
 `sqlx-cli`, never by the test runtime
-`[measured sqlx-core@0.9.0 · grep -rn 'database_url_var' sqlx-core-0.9.0/src sqlx-macros-core-0.9.0/src → the declaration and accessor in sqlx-core-0.9.0/src/config/common.rs, whose accessor defaults to "DATABASE_URL", and two call sites, both in sqlx-macros-core-0.9.0/src/query/metadata.rs]`,
-and the upstream change that would add a `var` argument to the attribute is open and unmerged
-`[measured launchbadge/sqlx#4050 · gh pr view 4050 --repo launchbadge/sqlx --json state,mergedAt → {"mergedAt":null,"state":"OPEN"}]`.
+`[measured sqlx-core@0.9.0 · grep -rn 'database_url_var' sqlx-core-0.9.0/src sqlx-macros-core-0.9.0/src → the declaration and accessor in sqlx-core-0.9.0/src/config/common.rs, whose accessor defaults to "DATABASE_URL", and its call sites, every one of them in sqlx-macros-core-0.9.0/src/query/metadata.rs and none in a testing module]`,
+and the upstream work that would let a test name its own environment variable is open and unmerged
+`[measured launchbadge/sqlx#4050 · gh pr view 4050 --repo launchbadge/sqlx --json title,state,mergedAt → title "feat: Support for specifying multiple databases in test macros.", state "OPEN", mergedAt null; and the same pull request --json body --jq .body | grep -n var → ':3: Adds grouping by "env" and specification of environment variable names by "var" as macro arguments.' — the title names multiple databases and the body names the argument]`.
 So `#[sqlx::test]` against a container means putting the container's DSN into the process's own
 `DATABASE_URL` before the first test connects — which `AGENTS.md` § *Build & Test* forbids in the
 plainest terms it uses anywhere, and which the owner reaffirmed by striking the spec rows that merely
@@ -152,9 +154,14 @@ configuration key that reaches the test runtime, and an upstream change still op
 `docs/03-storage.md` decides in that clause is a *property* — a database per test, with the
 repository's migrations applied to it by the suite itself — and that property is what AC3 states,
 mechanism-free. The harness delivers it by creating the database and running `reader-core`'s embedded
-migrator against it. The vehicle is the only thing that changes, and because the row that names the
-vehicle lives in the DECISIONS corpus, § Open questions asks the owner to confirm before `docs/03` is
-amended.
+migrator against it. The vehicle is the only thing that changes — and because the row that names the
+vehicle lives in the DECISIONS corpus, the owner was shown the three measurements and ruled on both
+halves at once: `[answer 4.1: "Подмена + правка docs. Принять свой main и в этом же PR поправить docs/03-storage.md:7, чтобы корпус описывал то, что действительно работает. Стандартные правила (уборка контейнера, запрет на DATABASE_URL в тестах) остаются нетронуты."]`.
+So the substitute is accepted, the corpus row is amended in this same pull request (**D13**), and the
+two standing rules that answer names — the container cleaning up after itself, and the ban on the
+suite reading `DATABASE_URL` — are left exactly as they are. Nothing in this design edits them:
+D12's `AGENTS.md` edit is confined to the coverage tolerance paragraph, and `rust-test-conventions.md`
+and KD-16 are not in any subtask's file set.
 
 **D2 — The database-backed target owns its `main`: `harness = false` with `libtest-mimic`.** The
 argument is § *The shape this design chooses* in full. The crate is established and current
@@ -262,6 +269,13 @@ developer machine's path would be wrong in CI, and one that guessed would hide t
 `AGENTS.md` § *Build & Test* wants loud. A machine with neither is told so by the failing test, which
 is the stated behaviour rather than a regrettable one.
 
+**A consequence for D13's ticking, stated here so it is not read as an oversight:** the corpus row
+that pairs the Podman socket with a runner setting the variable
+`[measured 435e649:docs/09-build-and-deploy.md:12 · awk 'NR==12 {print NR": "$0}' docs/09-build-and-deploy.md → the row ending "«just test» выставляет DOCKER_HOST на этот путь", with the runner named there being one this repository never adopted — its own first task row offers "just/Makefile" as alternatives]`
+is **not** closed by this task, because this design deliberately declines that clause. It therefore
+stays unticked under `[answer 4.3]`, which ticks only what is closed in full. Amending it is outside
+the single corpus amendment the owner authorised, so it is left alone and recorded here.
+
 **D11 — AC4 is asserted from the server's side, not only from the harness's own bookkeeping.** A
 counter the harness increments would test the harness. Two databases handed out separately are on the
 same server if and only if the server reports the same postmaster start instant, which is the
@@ -270,7 +284,10 @@ cheap cross-check, and the two disagreeing is itself informative. § Test Design
 
 **D12 — The statements this diff falsifies are corrected in the same pull request.** They fall into a
 definitive class and a judgement class, separated here so the judgement is visible rather than
-smuggled. Definitive: the root manifest's comment that the dependency table is empty because nothing
+smuggled. **The `AGENTS.md` edit below reaches the coverage tolerance paragraph and nothing else** —
+in particular neither the container-cleanup sentence nor the `DATABASE_URL` sentence of
+§ *Build & Test*, which `[answer 4.1]` leaves untouched and which this design satisfies rather than
+relaxes. Definitive: the root manifest's comment that the dependency table is empty because nothing
 compiles against anything
 `[measured 0daa273:Cargo.toml:16-18 · the awk read cited in § What the tree holds today]`, and the clause "the crates the
 workspace holds are skeletons and carry no test", which appears in the build-and-test tolerance
@@ -290,6 +307,44 @@ to say what is actually true. The gate-script sentences that look like the same 
 describes what the script does rather than what this repository is — the dependency-direction gate's
 `WHILE THE WORKSPACE IS EMPTY` closer, its no-binary branch message, and the ratchet's
 no-executable-lines branch comment.
+
+**D13 — The corpus row is amended in this pull request, and the checkboxes this task closes in full
+are ticked; everything else in `docs/` is left alone.** Both halves are the owner's, given after the
+measurements in § *The corpus names a mechanism…* were put to them:
+`[answer 4.1: "Подмена + правка docs. Принять свой main и в этом же PR поправить docs/03-storage.md:7, чтобы корпус описывал то, что действительно работает. Стандартные правила (уборка контейнера, запрет на DATABASE_URL в тестах) остаются нетронуты."]`
+and
+`[answer 4.3: "Отметить закрытое. Отметить те пункты, которые эта задача закрывает целиком, остальные оставить."]`.
+`docs/` is Russian (`AGENTS.md` CRITICALLY 1), so the amended row is written in Russian like the rest
+of the page.
+
+*What the amended row must assert*, clause by clause — the first is unchanged, the next three replace
+a mechanism that does not exist, and the last is a deliberate non-change:
+
+| Clause | After the amendment |
+|---|---|
+| The image and the socket | Unchanged: `testcontainers` with `pgvector/pgvector:pg18` over the Podman socket, `DOCKER_HOST` naming it |
+| One container per test binary | Kept as the property; the vehicle becomes the test binary's **own `main`** (`harness = false`), because a value parked in a `OnceCell` static is never dropped — so `OnceCell` goes |
+| Cleanup | The container is removed by an explicit call from that `main` when the run ends, because the crate ships no ryuk — so "ryuk включен" goes, and the standing cleanup rule it was serving is what the replacement keeps |
+| A database per test | Created and migrated by the harness itself, because `#[sqlx::test]` takes its connection only from `DATABASE_URL` and the suite may not read it — so the attribute goes, and the property it was there for stays |
+| The version parenthetical | **Left exactly as it is.** The spec's own key decision fixes the floating tag «Как есть»; that clause describes the developer machine at the time of writing rather than a requirement the harness enforces, and rewriting it would be an amendment the owner did not authorise |
+
+The row should carry its *reason* in the same sentence, so the next reader does not re-propose the
+mechanism that was measured away. `docs/` pages cite each other in prose and are outside the
+comment-reference gate, which reaches source files by extension and not markdown (§ *What the gates
+will read afterwards*), so a short inline reason is allowed there in a way it is not in a migration's
+SQL comment.
+
+*Which boxes are ticked.* Only rows this task closes **in full**, which is what the answer says:
+
+| Row | Ticked? | Why |
+|---|---|---|
+| `docs/03-storage.md:7` — the test harness | **yes**, once amended | the harness the amended row describes is exactly what this task delivers |
+| `docs/03-storage.md:8` — the `vector` extension in the first migration | **yes** | D6 delivers that statement as the first migration and nothing else |
+| `docs/03-storage.md:4` — `sqlx`, the migrations directory, the pool, the offline query cache | no | D8 defers `SQLX_OFFLINE`, the committed query cache and `cargo sqlx prepare --check`, and no application pool is built here; the row is part-done, so it stays open |
+| `docs/09-build-and-deploy.md:12` — the Podman socket | no | D10 declines the clause about a runner exporting the variable, so the row is not closed — see the note in D10 |
+| every other row of either page | no | untouched by this task |
+
+`[measured 435e649:docs/03-storage.md:4-8 · awk 'NR>=4 && NR<=8 {print NR": "$0}' docs/03-storage.md → the five unticked task rows of § Задачи, ':7:' the testcontainers row naming ryuk, OnceCell and the sqlx test attribute, and ':8:' the vector-extension row]`
 
 ### What the gates will read afterwards
 
@@ -332,13 +387,16 @@ A commit that stages only documents is unaffected, which is most of a run.
 | 1 | **The dependency set, the first migration, and the embedded migrator.** Add the workspace dependency entries with `cargo add` (never a hand-edited lockfile) and rewrite the root manifest's now-false comment about the empty table (D12). Declare `sqlx` as a normal dependency of `reader-core` with default features off and the set D7 fixes, and the dev-dependencies the next subtask needs — the container crate, its Postgres module, the runner and the async runtime — so the manifest is written once. Add `crates/core/migrations/0001_vector_extension.sql` carrying the single `CREATE EXTENSION IF NOT EXISTS vector` statement (D6), and expose the embedded migrator from `crates/core/src/lib.rs` with a doc comment that obeys the reference ban and KD-19 (§ *What the gates will read afterwards*). Add the `#[cfg(test)]` module beside it asserting the embedded set against AC2 — the lowest-versioned migration is version 1, described `vector_extension`, no migration carries a lower version, and its statement is exactly the one above. That test needs no container and is the half of AC2 that a machine without a runtime can still check. | `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` | — |
 | 2 | **The container harness and the database-backed test target.** Declare the target with its own `main` in `crates/core/Cargo.toml` (`harness = false`). Write the support module under `crates/core/tests/support/`: start one container from the overridden image (D4), build one admin pool over connect options assembled field by field with TLS disabled and no password (D5), hand out a freshly created and migrated database per caller, and expose the shutdown `main` drives through its runtime, whose result is reported rather than discarded (D3). Write the test target: `main` builds the runtime, starts the harness, registers the trials § Test Design names, runs them, shuts the harness down, and propagates the runner's verdict as the process's exit status. | `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs` | 1 |
 | 3 | **Correct the statements this diff falsifies (D12).** Rewrite the tolerance paragraph's reason clause and its twin in the ratchet script's header so both say what is now true — a crate carries a test, and the tolerance still has no drift series behind it — leaving the tolerance value and the script's conditional branches untouched. Rewrite the file-size bands' justification in the build entry point's comment and in its twin in the code-style reference to the same judgement: the crates carry their first code, and the bands still wait for a real distribution, so they do not move. Leave the condition-governed gate-script sentences § D12 enumerates alone; they are absent from this file set on purpose, because an untouched listed file reads as a missed site. The build entry point is in the comment-reference gated set, so a rewritten comment there obeys the same ban as a Rust one. | `AGENTS.md`, `.githooks/coverage-ratchet.sh`, `Makefile`, `ai-docs/code-style.md` | 2 |
-| 4 | **Record the harness decision where it will be looked for.** Add a key-decision row, in the page's own shape — decision, why, consequence, source — numbered after the last row the page carries, stating that the database-backed target owns its `main` so that one container serves the binary *and* is removed when the run ends, and that `#[sqlx::test]` is not the vehicle because its only connection source is the variable the suite is forbidden to read. The *consequence* field carries what a later test author inherits: a trial is registered in `main`, an unregistered one is a denied lint rather than a silent pass, and the lift threshold D9 fixes. The *source* field is backticked prose, not a markdown link, and names this design at the path it carries after Step 12 — `ai-docs/plans/done/2026-09-19-postgres-test-harness-migration.design.md` § D1–D3 — because the pre-retirement path is stale before the pull request opens. | `ai-docs/key-decisions.md` | 2 |
+| 4 | **Record the harness decision where it will be looked for.** Add a key-decision row, in the page's own shape — decision, why, consequence, source — numbered after the last row the page carries, stating that the database-backed target owns its `main` so that one container serves the binary *and* is removed when the run ends, and that `#[sqlx::test]` is not the vehicle because its only connection source is the variable the suite is forbidden to read. The *consequence* field carries what a later test author inherits: a trial is registered in `main`, an unregistered one is a denied lint rather than a silent pass, and the lift threshold D9 fixes. The row also records that the corpus row naming the old mechanism was amended in the same pull request on the owner's authorisation, so a later reader meets the amendment and its reason together. The *source* field is backticked prose, not a markdown link, and names this design at the path it carries after Step 12 — `ai-docs/plans/done/2026-09-19-postgres-test-harness-migration.design.md` § D1–D3 and § D13 — because the pre-retirement path is stale before the pull request opens. | `ai-docs/key-decisions.md` | 2 |
+| 5 | **Amend the corpus row and tick what this task closes in full (D13).** Rewrite `docs/03-storage.md`'s test row so the corpus describes the harness that exists: the image and the socket unchanged, one container per test binary owned by the test binary's own `main`, the container removed by an explicit call from that `main`, and a database per test created and migrated by the harness itself — each replacement carrying its one-clause reason, and the version parenthetical left exactly as it stands. Written in Russian, like the page. Then tick the rows this task closes in full — the amended test row and the vector-extension row — and leave every other checkbox on that page and on `docs/09-build-and-deploy.md` unticked, including the Podman-socket row D10 declines. **Touch no other rule text:** the container-cleanup and `DATABASE_URL` sentences of `AGENTS.md` § *Build & Test*, the matching paragraph of `ai-docs/rust-test-conventions.md` and KD-16 stay as they are, which is what the owner's answer requires. Trace any relative link this edit leaves with `realpath` before committing, because the harness job's link check sweeps every tracked markdown file. | `docs/03-storage.md` | 2 |
 
 ## Handoff plan
 
-`M = 4`. Two groups, homogeneous by change-type and minimised: the two code subtasks are consecutive
-and both harness subtasks depend on them and on neither each other, so no dependency chain forces an
-interleave. Two groups is within the default maximum of four, so no user approval is needed.
+`M = 5`. Two groups, homogeneous by change-type and minimised: the code subtasks are consecutive, and
+every document subtask depends on them and on none of the others, so no dependency chain forces an
+interleave and they cluster into one group. Two groups is within the default maximum of four, so no
+user approval is needed. The owner's round-4 answers added subtask 5 without moving a boundary: it is
+a markdown edit, so it joins the group that already holds the document subtasks.
 
 - **Entry into Group A:** spawn `/context-reset` per `.claude/skills/context-reset/SKILL.md`
   § Compaction recovery (re-entry). The first group takes a handoff exactly as every later one does.
@@ -352,12 +410,13 @@ interleave. Two groups is within the default maximum of four, so no user approva
   § Compaction recovery (re-entry). Parent `/task` resumes in Group B with fresh context.
 - **Group B** — model `inherit` (the orchestrator's), effort inherited from the orchestrator
   (typically xHigh, not pinned), 1M-token window, via `subagent_type="general-purpose"` with no inline
-  `model=` — subtasks 3, 4 (instructions/harness change-type: `AGENTS.md`, `Makefile`, `.githooks/**`,
-  `ai-docs/**`). Terminal group (2 subtasks; within the `1..=10` range).
+  `model=` — subtasks 3, 4, 5 (instructions/harness change-type: `AGENTS.md`, `Makefile`,
+  `.githooks/**`, `ai-docs/**`, `docs/**`). Terminal group (3 subtasks; within the `1..=10` range).
 
-Subtask 3 edits `AGENTS.md` and the ratchet script as a pair and the build entry point and the
-code-style reference as a second pair; subtask 4 touches neither file set. They are sequential commits
-inside one group, so the second reads the first's result.
+The three share a group and no file: subtask 3 edits `AGENTS.md` and the ratchet script as a pair and
+the build entry point and the code-style reference as a second pair, subtask 4 writes only to the
+key-decisions page, and subtask 5 only to the corpus page. They are sequential commits inside one
+group, so each reads the previous one's result.
 
 ## Risks
 
@@ -368,17 +427,18 @@ inside one group, so the second reads the first's result.
   look — `[measured sqlx-core@0.9.0 · grep -n 'pub [a-z_]*:' sqlx-core-0.9.0/src/migrate/migration.rs → the Migration and AppliedMigration checksum fields]`, `[derived → the § Test Design case "the embedded migration is exactly the vector-extension statement"]`.
 - **A green harness is a claim about the harness until it has been seen red.** A container that never
   started, an image without the extension and a test that asserts something true of every Postgres all
-  look identical from a passing run. Mitigation: § Test Design makes three red observations a required
+  look identical from a passing run. Mitigation: § Test Design makes its red observations a required
   part of subtask 2 rather than an optional courtesy, each recorded in the progress file with the
   output that was seen — `[derived → the § Test Design section "Red observations required before the group's last commit"]`.
 - **Docker Hub meters anonymous pulls per address, and CI runners share addresses.** The documented
   allowance is 100 pulls per six hours for an unauthenticated puller, counted per IPv4 address or IPv6
   /64 subnet
   `[measured https://docs.docker.com/docker-hub/usage/ · WebFetch → "100 per IPv4 address or IPv6 /64 subnet" within a six-hour window for unauthenticated users, against 200 per six hours for an authenticated free account]`,
-  so AC5 can go red for a reason that has nothing to do with this repository. Mitigation: nothing is
-  built for it now — the escape hatches are a registry login step or a mirrored image, and both are
-  scope this task has not been given. If CI reports a pull limit, that is the trigger to ask, and
-  § Open questions carries the question so the answer is not invented under time pressure.
+  so AC5 can go red for a reason that has nothing to do with this repository. Mitigation: **none is
+  built, by the owner's decision** — `[answer 4.2: "Ничего сейчас. Не усложнять задачу; если CI упрётся в лимит — разбираться отдельной задачей по факту красного прогона."]`.
+  The row stays here as a recorded risk and nothing more: no registry login step, no mirrored image,
+  no retry wrapper is designed for or built. A red run against the limit is the trigger for a separate
+  task, not for work inside this one.
 - **From this task on, a commit that stages Rust, SQL or a manifest needs a reachable container
   socket**, because the ratchet refuses a commit whose suite is not green and the suite now provisions
   a database — `[measured 0daa273:.githooks/coverage-ratchet.sh:92-96,119-126 · the two awk reads cited in § What the gates will read afterwards → the staged-set skip over '*.rs', '*.sql' and the manifests, and the BLOCKED branch whose message names the Podman socket]`.
@@ -480,28 +540,27 @@ pre-commit hook runs on the coverage-moving ones. Both now need a reachable sock
 
 ## Open questions
 
-- **`docs/03-storage.md` § Задачи names mechanisms this design does not use, and that page is
-  DECISIONS.** The measurements are in § Approach: `#[sqlx::test]` reads a hard-coded `DATABASE_URL`
-  and offers no override, the container crate ships no ryuk, and a container held in a `OnceCell`
-  static is never dropped, so the row's own pairing of "one container per binary" with cleanup cannot
-  both hold. This design keeps every *property* the row decides — a database per test, migrations
-  applied by the suite, one container per binary, the container removed — and changes only the
-  vehicles. **Two questions, and the second is the one that binds:** (a) does the owner accept the
-  substitute, and (b) may `docs/03-storage.md`'s test row be amended in this pull request to describe
-  the mechanism that exists? Until (b) is answered the corpus row stands as written and this design's
-  § D1–D3 are where the divergence is recorded. If the owner would rather keep the corpus's literal
-  shape, the alternative is the `OnceCell` static with an accepted leak — the cost is a container that
-  outlives the run, removed only by the next run or by a signal, and the standing cleanup rule in
-  `AGENTS.md` § *Build & Test*, in `ai-docs/rust-test-conventions.md` and in KD-16 would have to be
-  relaxed in the same breath.
-- **Does the owner want the `docs/` checkboxes this task discharges ticked?** `docs/03-storage.md`
-  § Задачи's test row and `docs/09-build-and-deploy.md` § Задачи's Podman-socket row are each partly
-  satisfied by this pull request. Editing `docs/` is the owner's call, so nothing is ticked without
-  one.
-- **If CI goes red on a Docker Hub pull limit, which escape hatch does the owner want?** A registry
-  login step needs a token in the repository's secrets; a mirrored image needs a push to a registry
-  the project controls. Neither is built now (§ Risks), and neither should be chosen the first time it
-  is needed at speed.
+- **The corpus row that names mechanisms this design does not use — CLOSED.** The measurements are in
+  § Approach: `#[sqlx::test]` takes its connection only from `DATABASE_URL` and offers no override,
+  the container crate ships no ryuk, and a container held in a `OnceCell` static is never dropped, so
+  the row's own pairing of "one container per binary" with cleanup cannot both hold. The owner
+  answered
+  `[answer 4.1: "Подмена + правка docs. Принять свой main и в этом же PR поправить docs/03-storage.md:7, чтобы корпус описывал то, что действительно работает. Стандартные правила (уборка контейнера, запрет на DATABASE_URL в тестах) остаются нетронуты."]`.
+  Both halves are folded in: the substitute stands (**D1**, **D2**, **D3**), and the corpus row is
+  amended in this same pull request as **subtask 5**, whose clause-by-clause contract is **D13**. The
+  two standing rules the answer protects are edited nowhere — D12 states that the `AGENTS.md` edit
+  reaches only the coverage tolerance paragraph. **No spec row is created or changed by this**: the
+  authorisation is design work, recorded here with the owner's words, and the spec stays as approved.
+- **Ticking the `docs/` checkboxes — CLOSED.** The owner answered
+  `[answer 4.3: "Отметить закрытое. Отметить те пункты, которые эта задача закрывает целиком, остальные оставить."]`.
+  Folded into **D13**, which names the rows ticked — the amended test row and the vector-extension row
+  of `docs/03-storage.md` — and the rows left open with the reason each is only part-done, the
+  Podman-socket row of `docs/09-build-and-deploy.md` among them (**D10**).
+- **A Docker Hub pull limit in CI — CLOSED.** The owner answered
+  `[answer 4.2: "Ничего сейчас. Не усложнять задачу; если CI упрётся в лимит — разбираться отдельной задачей по факту красного прогона."]`.
+  Folded into § Risks, which keeps the measured allowance as a **recorded risk and nothing more**: no
+  registry login, no mirrored image, no retry wrapper is designed for or built, and a red run against
+  the limit is the trigger for a separate task.
 - **No spec row was found to prescribe a mechanism this design would otherwise have chosen
   differently, so no `SPEC-REMIT` tag is raised.** Scope rows 1–4 and AC2 each name a mechanism —
   testcontainers, the Podman socket, the image tag, one container per binary, `#[sqlx::test]`, a single
