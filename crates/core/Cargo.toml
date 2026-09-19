@@ -13,3 +13,8 @@ libtest-mimic.workspace = true
 testcontainers.workspace = true
 testcontainers-modules.workspace = true
 tokio.workspace = true
+
+[[test]]
+name = "database"
+path = "tests/database.rs"
+harness = false
