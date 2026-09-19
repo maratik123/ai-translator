@@ -12,7 +12,7 @@ mod tests {
     use super::MIGRATOR;
 
     #[test]
-    fn embedded_migrations_satisfy_ac2() {
+    fn first_migration_is_the_vector_extension() {
         let lowest = MIGRATOR
             .migrations
             .iter()
