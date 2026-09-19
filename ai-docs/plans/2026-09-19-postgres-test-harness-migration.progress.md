@@ -1,5 +1,5 @@
 # Progress: Postgres test harness and the vector-extension migration — ACTIVE
-_Updated: 2026-09-19 10:22_
+_Updated: 2026-09-19 11:56_
 
 > Read THIS FIRST → ready to continue. No need to re-read the codebase.
 
@@ -8,20 +8,20 @@ _Updated: 2026-09-19 10:22_
 **Last build:** PASS
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 8 — Group A complete and reconciled with the design; Group B (subtasks 3-5) next
-**last_passed_gate:** make verify (full) | 2026-09-19T11:52:19Z | f1630d3
+**current_step:** Step 8 — subtask 3 of 5 complete
+**last_passed_gate:** cargo build --workspace --all-targets + make comment-refs + shellcheck | 2026-09-19T11:56:11Z | 27ba952
 **entry_args:** 13
 
 ## Next action
 
-**Do this immediately:** hand off Group B (subtasks 3-5) to `general-purpose` per the design's `## Handoff plan`, via `/context-reset`.
+**Do this immediately:** subtask 4 — the key-decision row (Group B, in progress).
 
 ## Subtasks
 
 - [x] 1. Dependency set, first migration, embedded migrator — `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` — commit 0d40e6a
 - [x] 2. Container harness and the database-backed test target — `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs` — commit df64b2a
-- [ ] 3. Correct the statements this diff falsifies (D12)  ← CURRENT (Group B)
-- [ ] 4. Record the harness decision where it will be looked for
+- [x] 3. Correct the statements this diff falsifies (D12) — `AGENTS.md`, `.githooks/coverage-ratchet.sh`, `Makefile`, `ai-docs/code-style.md` — commit 27ba952
+- [ ] 4. Record the harness decision where it will be looked for  ← CURRENT (Group B)
 - [ ] 5. Amend the corpus row and tick what this task closes in full (D13)
 
 Groups per the design's `## Handoff plan`: **Group A** = 1–2 (code, `code-writer`, sonnet/medium pinned in frontmatter); **Group B** = 3–5 (instructions/harness, `general-purpose`, inherit).
@@ -61,6 +61,9 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 7 (round 4, GO)**: the half the substituted mutant could not reach was observed too, and it is the design's own reasoning made visible — the second container, never entered into the take-once slot, was NOT removed, and its handle's destructor panicked at `testcontainers-0.27.3/src/core/async_drop.rs:17` with `there is no reactor running`. Two orphaned containers (one from this probe, one from an earlier delegate's) were found running and removed by explicit id; the developer's own unrelated container was left alone.
 
 - **Step 7 (round 4, GO)**: folding the GO notes surfaced a code non-compliance nobody had asked about — `main` carried the shutdown's `Result` out through a panicking call, which substitutes its own process status for the runner's verdict. The panic gate cannot see it (everything under `tests/` is out of its scope by position), so only the amended D3 catches it. Fixed: the runner's code is captured before teardown, a removal failure goes to the error channel and raises a green run to a failing status, and never replaces a status the trials already earned.
+
+- **Step 8 (subtask 3)**: D12's site list was re-measured rather than taken on the design's word, each sweep with a constructed control line — `carry no test` returns `AGENTS.md:187` and `.githooks/coverage-ratchet.sh:25`, `crates it holds` returns `Makefile:31` and `ai-docs/code-style.md:90`, and no other live site in either case. A wider sweep for `skeleton` over the same corpus adds only `ai-docs/context-status.md:9,13,33`, which is the per-task history log writing in the past tense about the previous task; it is a history surface and was left untouched. The four rewritten sentences replace the *reason* only: the tolerance constant, the two band constants and every conditional branch of the ratchet script are byte-identical, and the three gate-script sentences D12 excludes — including the ratchet's own no-executable-lines branch comment, which shares the file — were not touched.
+- **Step 8 (subtask 3)**: the comment-reference gate was seen RED in both gated files before the commit, not merely green afterwards. A markdown path planted inside the build entry point's file-size comment gave `Makefile:29: markdown-path: ai-docs/code-style.md`, exit 2; one planted in the ratchet script's tolerance header gave `.githooks/coverage-ratchet.sh:23: markdown-path: (AGENTS.md`, exit 2. Each was reverted from a `tmp/` copy, the executable bit re-checked on the script, and the gate then reported `no comment in the gated set points outward` against the committed tree. That the gate reaches both files by its own language map is therefore observed rather than assumed.
 
 ## GO notes
 
@@ -108,3 +111,7 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - `crates/core/Cargo.toml` — added `[[test]] name = "database" path = "tests/database.rs" harness = false`
 - `crates/core/tests/support/mod.rs` — new, the `Harness` (container start/shutdown, admin pool, per-call database creation and migration, take-once container slot behind `Arc`)
 - `crates/core/tests/database.rs` — new, `main` (multi-threaded runtime, trial registration, shutdown, exit code) and five trials covering AC1, AC3 (×3) and AC4
+- `AGENTS.md` — the coverage-tolerance paragraph's reason clause only; the tolerance value and every other sentence unchanged
+- `.githooks/coverage-ratchet.sh` — the tolerance header's reason clause only; the constant and every conditional branch unchanged
+- `Makefile` — the file-size bands' justification; both band constants unchanged
+- `ai-docs/code-style.md` — the same justification, in the twin sentence the bands' table carries
