@@ -8,8 +8,8 @@ _Updated: 2026-09-19 10:22_
 **Last build:** PASS
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 7 — design-review round 2 returned ITERATE; design amendment round 5 in flight
-**last_passed_gate:** make verify (full, re-run by the orchestrator) | 2026-09-19T10:50:30Z | 2f1dfec
+**current_step:** Step 7 — code reconciled with amended D11; design-review round 3 next
+**last_passed_gate:** make verify (full) | 2026-09-19T11:12:49Z | c98ccaa
 **entry_args:** 13
 
 ## Next action
@@ -51,6 +51,9 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 
 - **Step 7 (round 2)**: design-review returned ITERATE — two major, two minor, four recommendations. Both majors re-verified by the orchestrator against the shipped code before routing: the design's `vector_extension` description contradicts `crates/core/src/lib.rs:27` (`"vector extension"`), and `container_starts` is initialised to 1 at `crates/core/tests/support/mod.rs:74` and never mutated anywhere under `crates/` (grep empty against a matching constructed control over 6 files), so `crates/core/tests/database.rs:196` asserts a condition with no reachable failure mode.
 - **Step 7 (round 2)**: the dead-assertion finding implies a `.rs` fix to files Group A already committed. Routed design-first, because the design's choice between incrementing at the start site and striking the bookkeeping half is what decides which code fix is correct.
+
+- **Step 7 (fix round)**: the dead start-count assertion is fixed per amended D11 — a process-wide `static CONTAINER_STARTS`, zero at rest, incremented at the site that awaits the container start; the harness field is gone. Authored by a Mode B delegate, diff read and committed by the orchestrator.
+- **Step 7 (fix round)**: the assertion was shown RED by the orchestrator independently, not on the delegate's word — a duplicated `fetch_add` made the trial fail with `the harness recorded 2 container starts, expected 1`, exit 101; reverted from a `tmp/` copy, and the unmutated five trials then passed, exit 0. Both directions observed, which is what the instrument rule requires.
 
 ## GO notes
 
