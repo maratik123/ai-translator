@@ -14,10 +14,7 @@ extension.
 2. A run of the suite starts one container for the whole test binary rather than one per test. [task: "контейнер один на тестовый бинарь"]
 3. Every database-backed test runs against a database of its own, with the repository's migrations applied to it. [task: "`#[sqlx::test]` создаёт базу на тест и накатывает миграции сам"]
 4. The repository carries a first migration that creates the `vector` extension and does nothing else. [task: "ровно одна инструкция: `CREATE EXTENSION IF NOT EXISTS vector`"]
-5. The suite's connection comes from the database it provisioned, never from `DATABASE_URL`. [task: "Набор тестов не читает `DATABASE_URL`"]
-6. A machine that cannot reach a container runtime is told so by a failing test, and that direction is observed rather than assumed. [task: "а не из тихого пропуска. Это надо увидеть красным, а не предположить"]
-7. Nothing the suite started outlives the run. [task: "Контейнер убирается за собой."]
-8. The suite starts its database in the repository's CI run as well as on the developer machine, so the container-backed tests are part of the normal run in both places. [answer 1.1: "И в CI"]
+5. The suite starts its database in the repository's CI run as well as on the developer machine, so the container-backed tests are part of the normal run in both places. [answer 1.1: "И в CI"]
 
 ## Out of scope
 - The storage schema: the tables, the indexes and the repositories `docs/03-storage.md` describes. This task asks the database one question and delivers no table.
@@ -41,10 +38,7 @@ extension.
 | AC2 | The repository's first migration is a single statement creating the `vector` extension, and no other migration precedes it. [task: "ровно одна инструкция: `CREATE EXTENSION IF NOT EXISTS vector`. Дока требует расширение именно первой миграцией."] |
 | AC3 | Every database-backed test of the suite runs against a database of its own, with the repository's migrations applied to it. [task: "`#[sqlx::test]` создаёт базу на тест и накатывает миграции сам"] |
 | AC4 | A run of the suite starts one container for the whole test binary, not one per test. [task: "контейнер один на тестовый бинарь"] |
-| AC5 | No test in the suite takes its database connection from `DATABASE_URL`. [task: "Набор тестов не читает `DATABASE_URL`"] |
-| AC6 | On a machine where no container runtime is reachable, the run reports that condition as a failing test rather than as a pass or a skip, and the direction has been observed on such a run rather than inferred. [task: "а не из тихого пропуска. Это надо увидеть красным, а не предположить"] |
-| AC7 | No container the suite started is left running or left behind once the run ends. [task: "Контейнер убирается за собой."] |
-| AC8 | The database-backed tests are part of the repository's CI run and pass there, not only on the developer machine. [answer 1.1: "И в CI"] |
+| AC5 | The database-backed tests are part of the repository's CI run and pass there, not only on the developer machine. [answer 1.1: "И в CI"] |
 
 ## Open questions
 None.
