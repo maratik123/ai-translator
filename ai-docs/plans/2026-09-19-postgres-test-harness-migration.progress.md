@@ -5,11 +5,11 @@ _Updated: 2026-09-19 10:22_
 
 **Branch:** feat/2026-09-19-postgres-test-harness-migration
 **base_commit:** 1b0b287092e010b5a8794a28b2936190546fe1da
-**Last build:** not run
+**Last build:** PASS
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 8 — Group A complete (subtasks 1–2 of 5)
-**last_passed_gate:** make verify components run individually for subtask 2 (build, test --workspace including the database-backed target, fmt --check, clippy, doc-check, lock-check, import-guard, panic-calls, comment-refs, file-limits) — all GREEN; cover-ratchet held 89.47% against 89.47% at commit df64b2a
+**current_step:** Step 8 — Group A complete; Design Amendment in flight for the testcontainers version
+**last_passed_gate:** make verify (full, re-run by the orchestrator) | 2026-09-19T10:50:30Z | 2f1dfec
 **entry_args:** 13
 
 ## Next action
@@ -44,6 +44,10 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
   2. `DOCKER_HOST` pointed at a nonexistent socket path for one run — `main` panicked with `Client(Init(SocketNotFoundError(...)))`, exit 101; no test was skipped or silently reported as zero.
   3. `create_database`'s counter temporarily short-circuited to always return id `0` — `each_trial_gets_its_own_database` failed with `database "reader_core_test_0" already exists`, exit 101.
   4. A temporary always-failing trial appended to the target's trial list, run as the built binary directly (`target/debug/deps/database-<hash>`) rather than through `cargo test` (so the process's own exit status is observable) — exit 101, and `podman ps -a` showed no `pgvector/pgvector` container present after the process returned, confirming the container is removed on the failing path.
+
+- **Step 8 (orchestrator)**: re-ran the gates rather than accepting the delegate's green — `cargo build --workspace --all-targets` exit 0 with 0 errors, and `make verify` exit 0 with 0 errors and every `test result` line ok (5 database trials, 1 unit test). Compiler diagnostics for `SqlSafeStr`/`sqlx::query` seen before the re-run were stale intermediate state, not a defect in the committed tree.
+- **Step 8 (orchestrator)**: branch pushed to `origin` on the first group return, per the visibility rule; no pull request exists yet.
+- **Step 8 (Design Amendment)**: the `testcontainers` 0.27.3 deviation is real and verified independently against the live registry — `testcontainers-modules` 0.15.0 declares `testcontainers ^0.27.0` for both normal and dev kinds, and 0.15.0 is the newest published. The owner chose amendment WITH a re-run of design-review (answer 5.1), declining the per-instance exemption.
 
 ## GO notes
 
