@@ -171,13 +171,22 @@ async fn each_trial_gets_its_own_database(harness: Arc<Harness>) -> Result<(), F
     Ok(())
 }
 
-/// The two databases of a fresh pair report the identical postmaster start
-/// instant, which is the server's own evidence that one server backs them
-/// both; the harness's own start count is asserted beside it as the cheap
-/// cross-check.
+/// The primary evidence is the harness's own count of container starts: it is
+/// incremented at the site that awaits the container start, so a second
+/// start anywhere in the binary is observable, and it is what can actually
+/// fail. The server's own postmaster start instant is checked second, as
+/// corroboration, not as a replacement: both databases here are taken inside
+/// one trial, so a harness that started one container per trial would still
+/// report identical instants for them. Only the count sees that failure, and
+/// neither check subsumes the other.
 async fn one_container_serves_the_whole_binary(harness: Arc<Harness>) -> Result<(), Failed> {
     let first = harness.create_database().await?;
     let second = harness.create_database().await?;
+
+    let starts = harness.container_starts();
+    if starts != 1 {
+        return Err(format!("the harness recorded {starts} container starts, expected 1").into());
+    }
 
     let first_start: String = sqlx::query_scalar("SELECT pg_postmaster_start_time()::text")
         .fetch_one(&first.pool)
@@ -190,11 +199,6 @@ async fn one_container_serves_the_whole_binary(harness: Arc<Harness>) -> Result<
             "the two databases reported different postmaster start instants: {first_start} vs {second_start}"
         )
         .into());
-    }
-
-    let starts = harness.container_starts();
-    if starts != 1 {
-        return Err(format!("the harness recorded {starts} container starts, expected 1").into());
     }
 
     Ok(())
