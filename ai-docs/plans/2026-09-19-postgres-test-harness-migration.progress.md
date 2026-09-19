@@ -157,6 +157,14 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - `ai-docs/code-style.md` — the same justification, in the twin sentence the bands' table carries
 - `ai-docs/key-decisions.md` — KD-20 appended to § Repository and process; no existing row edited, KD-16 left as it stands
 - `docs/03-storage.md` — the test row amended to the harness that exists, and it plus the vector-extension row ticked; every other row of the page untouched
+- `ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md` — the approved spec, written through the interview and amended by the owner's strike
+- `ai-docs/plans/2026-09-19-postgres-test-harness-migration.design.md` — the design, across eight writing rounds and four review rounds
+- `ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md.state.md` — the interview state, carrying the owner's answers verbatim
+- `ai-docs/plans/2026-09-19-postgres-test-harness-migration.progress.md` — the run's own record
+- `ai-docs/context-status.md` — the per-task entry appended at Step 9.5, carrying its placeholder pull-request locator until Step 12 fills it
+- `ai-docs/harness-gaps.md` — the diagnoses filed during the run: the edit guard's missing intended-shrink path, the relative-link check that cannot tell a link from a quoted example, the shell's `grep` resolving to ugrep, the unnamed third test-instrument failure mode, and the coverage ratchet recording a rounded-up value it cannot satisfy
+- `ai-docs/learnings.md` — the conduct entries: a probe that left files in the repository root, and a claim about an upstream pull request made from a query that did not fetch its body
+- `ai-docs/coverage-ratchet.txt` — lowered with its reason when a dead assertion's removal took covered lines with it, then repaired after the script raised it past its own measurement
 
 ## Self-Review (Round 1)
 
