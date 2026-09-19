@@ -4,8 +4,8 @@
 - [ ] `sqlx` с фичей `postgres`, миграции в `crates/core/migrations/`, пул через `PgPoolOptions`. Компиляция с `SQLX_OFFLINE=true` и `.sqlx/` в репозитории; `cargo sqlx prepare --check` в CI.
 - [ ] Миграции накатывает только отдельный бинарь `reader-migrate` (`sqlx::migrate!()` из `core`). `sqlx-cli` только для разработки (`migrate add`, `prepare`).
 - [ ] `Engine::open` проверяет схему по `_sqlx_migrations`: версии и чексуммы должны совпадать со встроенными; не хватает → ошибка «схема старше кода, запустите reader-migrate»; лишние → «схема новее кода». Конвертер и сервер сами не мигрируют.
-- [ ] Тесты: `testcontainers` с образом `pgvector/pgvector:pg18` через Podman socket (версия образа должна совпадать с локальной: на машине Postgres 18.6 + pgvector 0.8.6) (`DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock`), ryuk включен, контейнер один на тестовый бинарь (`OnceCell`); `#[sqlx::test]` создает БД на тест и накатывает миграции сам.
-- [ ] Расширение `vector` в первой миграции: `CREATE EXTENSION IF NOT EXISTS vector`.
+- [x] Тесты: `testcontainers` с образом `pgvector/pgvector:pg18` через Podman socket (версия образа должна совпадать с локальной: на машине Postgres 18.6 + pgvector 0.8.6) (`DOCKER_HOST=unix:///run/user/$UID/podman/podman.sock`), контейнер один на тестовый бинарь, и владеет им собственный `main` этого бинаря (`harness = false`), потому что значение, положенное в статик, не уничтожается никогда. Контейнер убирается явным вызовом из этого `main` по окончании прогона, потому что ryuk крейт не поставляет. БД на тест создаёт и накатывает миграции сама обвязка, потому что `#[sqlx::test]` берёт подключение только из `DATABASE_URL`, а эту переменную тестам читать запрещено.
+- [x] Расширение `vector` в первой миграции: `CREATE EXTENSION IF NOT EXISTS vector`.
 - [ ] Репозитории: `books`, `chapters`, `paragraphs`, `translations`, `context_snapshots`, `positions`, `settings`, `embeddings`.
 - [ ] Отдельная роль и БД `reader` на локальном Postgres; connection string в конфиге.
 - [ ] Файлы книг (картинки, css, обложки) на диске в `assets_dir`, в БД только пути. Бэкап = `pg_dump` + каталог.
