@@ -57,3 +57,10 @@ An entry is a conduct correction or a validation of this project's own runs; a d
 **at:** a46eea6
 **Kind:** correction
 **Escalated?** no
+
+### 2026-09-19 — tooling — a probe's scratch files landed in the repository root when its `cd` failed
+**What happened:** A multi-line Bash probe opened with `cd tmp/guard-probe`, but that directory did not exist — the earlier command that would have created it had been refused by a hook, and only the `cd` line carried the `&&`. The `cd` failed, the remaining newline-separated lines ran in the repository ROOT, and three scratch files were written there. Their own output said so (`exit=127`, `No such file or directory`), and they surfaced in `git status` after the next commit; they were inspected, confirmed to be the probe's, and removed.
+**Rule:** When a probe's working directory is load-bearing, make the command fail closed instead of falling through — `cd <dir> || exit 1` as the first statement, or give every output an absolute path under `tmp/`. A bare `cd` on its own line guards nothing: the lines after it run wherever the shell happens to be, so a failed `cd` silently relocates the whole probe onto the tree it was supposed to leave alone.
+**at:** 8c3d231
+**Kind:** correction
+**Escalated?** no
