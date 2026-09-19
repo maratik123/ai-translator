@@ -17,6 +17,7 @@ extension.
 5. The suite's connection comes from the database it provisioned, never from `DATABASE_URL`. [task: "Набор тестов не читает `DATABASE_URL`"]
 6. A machine that cannot reach a container runtime is told so by a failing test, and that direction is observed rather than assumed. [task: "а не из тихого пропуска. Это надо увидеть красным, а не предположить"]
 7. Nothing the suite started outlives the run. [task: "Контейнер убирается за собой."]
+8. The suite starts its database in the repository's CI run as well as on the developer machine, so the container-backed tests are part of the normal run in both places. [answer 1.1: "И в CI"]
 
 ## Out of scope
 - The storage schema: the tables, the indexes and the repositories `docs/03-storage.md` describes. This task asks the database one question and delivers no table.
@@ -24,14 +25,14 @@ extension.
 - The application's own database: the role, the database and the connection the application reads at run time.
 
 ## Deferred
-- None yet; the round-1 answers may add one.
+- None.
 
 ## Key decisions
 | Question | Decision |
 |---|---|
 | Why the first migration belongs to this task rather than to the schema task | Otherwise the two lock each other: a migration test needs the harness, and the harness's definition of done needs a migration. The minimal first migration breaks the cycle and checks the most fragile point of the configuration at the same time. [task: "Минимальная первая миграция разрывает его и заодно проверяет самое хрупкое место в конфигурации"] |
-| How far does the harness have to reach — the developer machine, or the repository's CI run as well? | TBD — round-1 question |
-| Does the image the suite starts follow the floating tag the task names, or name the extension version the developer machine runs? | TBD — round-1 question |
+| How far does the harness have to reach — the developer machine, or the repository's CI run as well? | The CI run as well: the container-backed tests belong to the normal run in both places. [answer 1.1: "И в CI"] |
+| Does the image the suite starts follow the floating tag the task names, or name the extension version the developer machine runs? | The floating tag, as the task names it. The version line of the task text describes the build that tag serves at the time of writing; when the registry moves the tag, the suite moves with it. [answer 1.2: "Как есть"] |
 
 ## Acceptance Criteria
 | # | Criterion |
@@ -43,6 +44,7 @@ extension.
 | AC5 | No test in the suite takes its database connection from `DATABASE_URL`. [task: "Набор тестов не читает `DATABASE_URL`"] |
 | AC6 | On a machine where no container runtime is reachable, the run reports that condition as a failing test rather than as a pass or a skip, and the direction has been observed on such a run rather than inferred. [task: "а не из тихого пропуска. Это надо увидеть красным, а не предположить"] |
 | AC7 | No container the suite started is left running or left behind once the run ends. [task: "Контейнер убирается за собой."] |
+| AC8 | The database-backed tests are part of the repository's CI run and pass there, not only on the developer machine. [answer 1.1: "И в CI"] |
 
 ## Open questions
-None beyond the two this round puts to the owner.
+None.
