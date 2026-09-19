@@ -62,13 +62,13 @@ restated it (`prior_qa` round 2: «три критерия повторяют AG
 
 **testcontainers-rs carries no Ryuk.** A case-insensitive sweep of the whole published crate for
 either name comes back empty, and the same pattern matches a constructed control line
-`[measured testcontainers@0.28.0 · grep -rni 'ryuk\|reaper' testcontainers-0.28.0/ → no output; the control printf 'RYUK_CONTAINER_IMAGE\nryuk\n' | grep -ni 'ryuk\|reaper' → both lines matched, so the pattern ran]`.
+`[measured testcontainers@0.27.3 · grep -rni 'ryuk\|reaper' testcontainers-0.27.3/ → no output; and the same pattern over a constructed control file holding the lines RYUK_CONTAINER_IMAGE, ryuk and Reaper → all three matched, so the pattern ran and the absence is the crate's]`.
 What it has instead is an optional `watchdog` feature that stops and removes registered containers on
 `SIGTERM`, `SIGINT` or `SIGQUIT`
-`[measured testcontainers@0.28.0 · awk 'NR>=1 && NR<=4 {print NR": "$0}' testcontainers-0.28.0/src/watchdog.rs → ':1: //! Watchdog that stops and removes containers on SIGTERM, SIGINT, or SIGQUIT' and ':3: //! By default, the watchdog is disabled. To enable it, enable the "watchdog" feature.']`,
+`[measured testcontainers@0.27.3 · awk 'NR>=1 && NR<=4 {print NR": "$0}' testcontainers-0.27.3/src/watchdog.rs → ':1: //! Watchdog that stops and removes containers on SIGTERM, SIGINT, or SIGQUIT' and ':3: //! By default, the watchdog is disabled. To enable it, enable the "watchdog" feature.']`,
 which covers an interrupted run and says nothing about a normal exit. The only removal path on a
 normal exit is the container handle's own destructor, or the explicit `rm`
-`[measured testcontainers@0.28.0 · grep -n 'client.rm(&id)\|env::Command::Remove\|pub async fn rm' testcontainers-0.28.0/src/core/containers/async_container.rs → ':205: pub async fn rm(mut self) -> Result<()> {', ':276: env::Command::Remove => {' and ':277: if let Err(e) = client.rm(&id).await {', the last two inside the Drop impl that opens at ':244']`.
+`[measured testcontainers@0.27.3 · grep -n 'client.rm(&id)\|env::Command::Remove\|pub async fn rm' testcontainers-0.27.3/src/core/containers/async_container.rs → ':205: pub async fn rm(mut self) -> Result<()> {', ':276: env::Command::Remove => {' and ':277: if let Err(e) = client.rm(&id).await {', the last two inside the Drop impl that opens at ':244']`.
 
 **A container parked in a `static` is therefore never removed, because a `static` is never dropped.**
 This is the load-bearing claim of the design, so it was executed rather than reasoned about: a probe
@@ -214,11 +214,11 @@ that needed serialising would be a harness with a shared-state defect — and th
 **D3 — The container is removed by an explicit call inside the async runtime, never by letting the
 handle drop outside one.** The destructor's helper resolves the current runtime handle before doing
 anything else
-`[measured testcontainers@0.28.0 · grep -n 'Handle::current\|pub(crate) fn async_drop' testcontainers-0.28.0/src/core/async_drop.rs → ':16: pub(crate) fn async_drop(future: …)' and ':17: let handle = tokio::runtime::Handle::current();']`,
+`[measured testcontainers@0.27.3 · grep -n 'Handle::current\|pub(crate) fn async_drop' testcontainers-0.27.3/src/core/async_drop.rs → ':16: pub(crate) fn async_drop(future: …)' and ':17: let handle = tokio::runtime::Handle::current();']`,
 and `main` is not inside a runtime, so a handle dropped there would resolve a handle that does not
 exist. The harness therefore exposes a shutdown that `main` drives through the runtime it owns,
 calling the crate's own consuming removal
-`[measured testcontainers@0.28.0 · grep -n 'pub async fn rm' testcontainers-0.28.0/src/core/containers/async_container.rs → ':205: pub async fn rm(mut self) -> Result<()> {']`.
+`[measured testcontainers@0.27.3 · grep -n 'pub async fn rm' testcontainers-0.27.3/src/core/containers/async_container.rs → ':205: pub async fn rm(mut self) -> Result<()> {']`.
 Because that call consumes the handle, the handle cannot simply live in the harness as a field every
 trial can see: it lives in the take-once slot D2 specifies, which `shutdown` empties. Its result is
 reported, not discarded: a container that could not be removed is a message on the way out, because
@@ -232,7 +232,7 @@ The Postgres module of `testcontainers-modules` hard-codes a different image, so
 overridden rather than its environment or its readiness conditions
 `[measured testcontainers-modules@0.15.0 · awk 'NR>=5 && NR<=6 {print NR": "$0}' testcontainers-modules-0.15.0/src/postgres/mod.rs → ':5: const NAME: &str = "postgres";' / ':6: const TAG: &str = "11-alpine";']`,
 using the builder the container crate provides for exactly that
-`[measured testcontainers@0.28.0 · grep -n 'fn with_name\|fn with_tag' testcontainers-0.28.0/src/core/image/image_ext.rs → the trait declarations at ':60: fn with_name(self, name: impl Into<String>) -> ContainerRequest<I>;' and ':66: fn with_tag(...)', with their impls at :312 and :320]`.
+`[measured testcontainers@0.27.3 · grep -n 'fn with_name\|fn with_tag' testcontainers-0.27.3/src/core/image/image_ext.rs → the trait declarations at ':60: fn with_name(self, name: impl Into<String>) -> ContainerRequest<I>;' and ':66: fn with_tag(...)', with their impls at :312 and :320]`.
 Keeping the module's readiness conditions is the point of overriding rather than rebuilding: it waits
 for the ready message on **both** streams
 `[measured testcontainers-modules@0.15.0 · awk 'NR>=126 && NR<=131 {print NR": "$0}' testcontainers-modules-0.15.0/src/postgres/mod.rs → ':126: fn ready_conditions(&self) -> Vec<WaitFor> {' over a vec holding WaitFor::message_on_stderr and WaitFor::message_on_stdout, both carrying "database system is ready to accept connections"]`,
@@ -317,7 +317,7 @@ Lifting now would create a member with one consumer, which is the opposite error
 **D10 — The socket is the environment's to name; the build entry point is not touched.** The container
 crate resolves its host from `DOCKER_HOST` before any fallback, and falls back to the platform default
 socket when the variable is unset
-`[measured testcontainers@0.28.0 · awk 'NR>=44 && NR<=54 {print NR": "$0}' testcontainers-0.28.0/src/lib.rs → ':44: ##### The host is resolved in the following order:' over a list whose second entry is ':47: 2. "DOCKER_HOST" environment variable.' and whose fourth is ':49: 4. Read the default Docker socket path'; and grep -n 'pub const DEFAULT_DOCKER_HOST' testcontainers-0.28.0/src/core/env/config.rs → ':34: pub const DEFAULT_DOCKER_HOST: &str = "unix:///var/run/docker.sock";']`.
+`[measured testcontainers@0.27.3 · awk 'NR>=44 && NR<=54 {print NR": "$0}' testcontainers-0.27.3/src/lib.rs → ':44: ##### The host is resolved in the following order:' over a list whose second entry is ':47: 2. "DOCKER_HOST" environment variable.' and whose fourth is ':49: 4. Read the default Docker socket path'; and grep -n 'pub const DEFAULT_DOCKER_HOST' testcontainers-0.27.3/src/core/env/config.rs → ':34: pub const DEFAULT_DOCKER_HOST: &str = "unix:///var/run/docker.sock";']`.
 The developer machine exports the variable already
 `[measured podman@5.8.2 · printf '%s\n' "$DOCKER_HOST" in a shell initialised from the user's profile → unix:///run/user/1000/podman/podman.sock, and ls -la /run/user/1000/podman/ → a socket named podman.sock]`,
 and the CI runner image ships a daemon on the fallback path
@@ -404,6 +404,41 @@ SQL comment.
 
 `[measured 435e649:docs/03-storage.md:4-8 · awk 'NR>=4 && NR<=8 {print NR": "$0}' docs/03-storage.md → the five unticked task rows of § Задачи, ':7:' the testcontainers row naming ryuk, OnceCell and the sqlx test attribute, and ':8:' the vector-extension row]`
 
+**D14 — The container crate sits at 0.27.3, and that is a coupled constraint rather than a stale
+pin.** The design's coordinates were first measured against 0.28.0; the implementation resolved
+0.27.3, and the owner sent the divergence back through the normal path rather than letting either
+side drift: `[answer 5.1: "Правка + ревью. Штатный путь: design-writer приводит координаты D3/D4/D5 к 0.27.3, затем design-review прогоняется заново."]`.
+Every tag in this design now cites the version the lockfile actually holds
+`[measured 0f1322b:Cargo.lock · awk '/^name = "testcontainers/{n=$3} /^version/{if(n){print n, $3; n=""}}' Cargo.lock → "testcontainers" "0.27.3" and "testcontainers-modules" "0.15.0"]`.
+
+*Why it is not simply raised.* The Postgres module is what selects the line: its published manifest
+and the registry index both put its requirement on the 0.27 series, for the normal and the dev
+dependency kind alike, and no newer module crate exists to lift it
+`[measured testcontainers-modules@0.15.0 · the sparse index at index.crates.io/te/st/testcontainers-modules → the newest non-yanked version is 0.15.0, whose deps list carries testcontainers "^0.27.0" twice, once with kind normal and once with kind dev; and grep -n -A2 on the published Cargo.toml → ':209: [dependencies.testcontainers]' / ':210: version = "0.27.0"' and ':357: [dev-dependencies.testcontainers]' / ':358: version = "0.27.0"']`,
+while the container crate's own newest release is 0.28.0
+`[measured testcontainers · the sparse index at index.crates.io/te/st/testcontainers → the newest non-yanked version is 0.28.0, with 0.27.3 present]`.
+
+*And the refusal is one level deeper than the bound, which is the part worth writing down.* Cargo will
+happily hold two semver-incompatible lines of the same crate, so "add 0.28.0 beside it" looks
+reasonable and is the thing a later reader will try. It was tried here, and the resolver refused —
+not on `testcontainers` at all, but on a transitive package the two lines pin to exact and mutually
+exclusive versions
+`[measured cargo@1.98.1 · a scratch package under tmp/ requiring testcontainers "0.28.0" and testcontainers-modules "0.15.0" with the postgres feature, run with cargo generate-lockfile → exit non-zero and "error: failed to select a version for bollard-stubs", whose two chains read "... required by package bollard v0.20.0 ... which satisfies dependency testcontainers = ^0.27.0 of package testcontainers-modules v0.15.0" against the previously selected "bollard-stubs v1.53.1-rc.29.3.1 ... of package bollard v0.21.0 ... which satisfies dependency testcontainers = ^0.28.0", ending "failed to select a version for bollard-stubs which could resolve this conflict"]`.
+So raising the container crate is a **coupled move, not a version bump**: it needs a module release
+whose bound admits it. The other escape is to stop using the module and hand-build the image, which
+forfeits the readiness conditions D4 keeps on purpose — that is a design change, and it belongs in a
+task that argues for it.
+
+*What the move cost this design: nothing, and that was checked rather than assumed.* Every coordinate
+cited here was re-run against the 0.27.3 tree in the amendment turn and read identically — same
+paths, same line numbers, same text — and a whole-tree diff shows the releases differing in nothing
+this design's mechanism reaches: a bollard type rename on the mount conversion, which is dead code
+here because the harness mounts nothing, and the ssh sidecar's image tag, which belongs to a feature
+this design does not enable. Those are the whole of the difference
+`[measured testcontainers@0.27.3 vs @0.28.0 · diff -rq testcontainers-0.27.3/src testcontainers-0.28.0/src → only src/core/containers/host.rs and src/runners/async_runner.rs differ; diff -u on each → MountTypeEnum renamed to MountType in the From<&Mount> impl, and ssh_tag moved from "1.3.0" to "1.4.0" behind the host-port-exposure feature]`.
+In particular the ryuk argument, which D2 leans on hardest, was re-measured on 0.27.3 rather than
+carried over — see § *The corpus names a mechanism…*, whose sweep and control were both re-run there.
+
 ### What the gates will read afterwards
 
 The comment-reference ban reaches SQL by file name, so the migration's own comments are gated exactly
@@ -458,7 +493,7 @@ A commit that stages only documents is unaffected, which is most of a run.
 
 | # | Task | Files | Depends on |
 |---|------|-------|------------|
-| 1 | **The dependency set, the first migration, and the embedded migrator.** Add the workspace dependency entries with `cargo add` (never a hand-edited lockfile) and rewrite the root manifest's now-false comment about the empty table (D12). Declare `sqlx` as a normal dependency of `reader-core` with default features off and the set D7 fixes, and the dev-dependencies the next subtask needs — the container crate, its Postgres module, the runner and the async runtime — so the manifest is written once. Add `crates/core/migrations/0001_vector_extension.sql` carrying the single `CREATE EXTENSION IF NOT EXISTS vector` statement and **no comment line** (D6 — the loader keeps the file's bytes verbatim, so a comment would land inside both the embedded text and the checksum), and expose the embedded migrator from `crates/core/src/lib.rs` with a doc comment that obeys the reference ban and KD-19 (§ *What the gates will read afterwards*). Add the `#[cfg(test)]` module beside it asserting the embedded set against AC2 — the lowest-versioned migration is version 1, described `vector_extension`, no migration carries a lower version, and its statement is exactly the one above. That test needs no container and is the half of AC2 that a machine without a runtime can still check. | `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` | — |
+| 1 | **The dependency set, the first migration, and the embedded migrator.** Add the workspace dependency entries with `cargo add` (never a hand-edited lockfile), taking the container crate from the 0.27 series rather than the newest release — the Postgres module's bound is what decides it and the resolver refuses the alternative (**D14**) and rewrite the root manifest's now-false comment about the empty table (D12). Declare `sqlx` as a normal dependency of `reader-core` with default features off and the set D7 fixes, and the dev-dependencies the next subtask needs — the container crate, its Postgres module, the runner and the async runtime — so the manifest is written once. Add `crates/core/migrations/0001_vector_extension.sql` carrying the single `CREATE EXTENSION IF NOT EXISTS vector` statement and **no comment line** (D6 — the loader keeps the file's bytes verbatim, so a comment would land inside both the embedded text and the checksum), and expose the embedded migrator from `crates/core/src/lib.rs` with a doc comment that obeys the reference ban and KD-19 (§ *What the gates will read afterwards*). Add the `#[cfg(test)]` module beside it asserting the embedded set against AC2 — the lowest-versioned migration is version 1, described `vector_extension`, no migration carries a lower version, and its statement is exactly the one above. That test needs no container and is the half of AC2 that a machine without a runtime can still check. | `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` | — |
 | 2 | **The container harness and the database-backed test target.** Declare the target with its own `main` in `crates/core/Cargo.toml` (`harness = false`). Write the support module under `crates/core/tests/support/`: start one container from the overridden image (D4), build one admin pool over connect options assembled field by field with TLS disabled and no password (D5), hand out a freshly created and migrated database per caller, and expose the shutdown `main` drives through its runtime, whose result is reported rather than discarded (D3). Hold the container in a take-once slot and hand the harness out as an `Arc` — never a leak, never a `static` — with the per-database name built from a fixed prefix and an atomic counter so it is unique under the runner's default parallelism (D2). Write the test target: `main` builds a multi-threaded runtime, starts the harness, registers the trials § Test Design names — each closure taking an `Arc` clone and a runtime-handle clone — runs them, shuts the harness down after `run` returns, and propagates the runner's verdict as the process's exit status. | `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs` | 1 |
 | 3 | **Correct the statements this diff falsifies (D12).** Rewrite the tolerance paragraph's reason clause and its twin in the ratchet script's header so both say what is now true — a crate carries a test, and the tolerance still has no drift series behind it — leaving the tolerance value and the script's conditional branches untouched. Rewrite the file-size bands' justification in the build entry point's comment and in its twin in the code-style reference to the same judgement: the crates carry their first code, and the bands still wait for a real distribution, so they do not move. Leave the condition-governed gate-script sentences § D12 enumerates alone; they are absent from this file set on purpose, because an untouched listed file reads as a missed site. The build entry point is in the comment-reference gated set, so a rewritten comment there obeys the same ban as a Rust one. | `AGENTS.md`, `.githooks/coverage-ratchet.sh`, `Makefile`, `ai-docs/code-style.md` | 2 |
 | 4 | **Record the harness decision where it will be looked for.** Add a key-decision row, in the page's own shape — decision, why, consequence, source — numbered after the last row the page carries, stating that the database-backed target owns its `main` so that one container serves the binary *and* is removed when the run ends, and that `#[sqlx::test]` is not the vehicle because its only connection source is the variable the suite is forbidden to read. The *consequence* field carries what a later test author inherits: a trial is registered in `main`, an unregistered one is a denied lint rather than a silent pass, and the lift threshold D9 fixes. The row also records that the corpus row naming the old mechanism was amended in the same pull request on the owner's authorisation, so a later reader meets the amendment and its reason together. The *source* field is backticked prose, not a markdown link, and names this design at the path it carries after Step 12 — `ai-docs/plans/done/2026-09-19-postgres-test-harness-migration.design.md` § D1–D3 and § D13 — because the pre-retirement path is stale before the pull request opens. | `ai-docs/key-decisions.md` | 2 |
@@ -474,7 +509,9 @@ a markdown edit, so it joins the group that already holds the document subtasks.
 after it moved no boundary either — every item it raised lands inside a subtask that already exists
 (the migration's contents and the exact assertion in 1, the sharing and thread models in 2, the
 workflow's paths filter recorded rather than changed), so `M`, the grouping and the change-type
-homogeneity are all unchanged and re-checked rather than merely restated.
+homogeneity are all unchanged and re-checked rather than merely restated. The version amendment that
+followed moved nothing either: it rewrites coordinates and adds **D14**, touching no file set and
+creating no subtask, so the plan below stands as it was.
 
 - **Entry into Group A:** spawn `/context-reset` per `.claude/skills/context-reset/SKILL.md`
   § Compaction recovery (re-entry). The first group takes a handoff exactly as every later one does.
@@ -523,7 +560,7 @@ group, so each reads the previous one's result.
   Mitigation: the ratchet already prints the socket instruction on that branch, so the failure is
   self-explaining; subtask 3 leaves that branch's comment alone for the reason D12 gives.
 - **The container crate's destructor resolves a runtime handle, so a handle dropped on a path that
-  bypasses the explicit shutdown panics instead of cleaning up** — `[measured testcontainers@0.28.0 · grep -n 'Handle::current' testcontainers-0.28.0/src/core/async_drop.rs → ':17: let handle = tokio::runtime::Handle::current();']`.
+  bypasses the explicit shutdown panics instead of cleaning up** — `[measured testcontainers@0.27.3 · grep -n 'Handle::current' testcontainers-0.27.3/src/core/async_drop.rs → ':17: let handle = tokio::runtime::Handle::current();']`.
   Mitigation: D3 puts the shutdown inside the runtime `main` owns, and § Test Design requires the
   teardown to be observed on a failing run as well as a passing one, which is the path where an early
   return would hide — `[derived → the § Test Design case "the container is removed after a failing trial"]`.
