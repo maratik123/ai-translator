@@ -206,7 +206,14 @@ async fn one_container_serves_the_whole_binary(harness: Arc<Harness>) -> Result<
 
 /// The shared path the runner's default parallelism puts the harness on,
 /// driven rather than assumed: several databases requested from concurrent
-/// tasks are all distinct and all migrated.
+/// tasks each report a distinct current database to the server itself, and
+/// each carries the full applied-migration set.
+///
+/// The distinctness check reads `current_database()` through each database's
+/// own pool rather than trusting the name the harness handed back: the
+/// harness's name is a record of what it intended to create, not evidence
+/// that the pool actually reached that database. Asking the server closes
+/// that gap.
 async fn concurrent_requests_get_distinct_databases(harness: Arc<Harness>) -> Result<(), Failed> {
     const CONCURRENT_REQUESTS: usize = 8;
 
@@ -216,34 +223,46 @@ async fn concurrent_requests_get_distinct_databases(harness: Arc<Harness>) -> Re
         tasks.push(tokio::spawn(async move { harness.create_database().await }));
     }
 
-    let mut names = Vec::with_capacity(CONCURRENT_REQUESTS);
+    let expected_versions: Vec<i64> = reader_core::MIGRATOR
+        .migrations
+        .iter()
+        .map(|migration| migration.version)
+        .collect();
+
+    let mut reported_names = Vec::with_capacity(CONCURRENT_REQUESTS);
     for task in tasks {
         let database = task
             .await
             .map_err(|err| format!("a concurrent request's task panicked: {err}"))??;
 
-        let extension_present: bool = sqlx::query_scalar(
-            "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')",
-        )
-        .fetch_one(&database.pool)
-        .await?;
-        if !extension_present {
+        let reported_name: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(&database.pool)
+            .await?;
+
+        let applied_versions: Vec<i64> =
+            sqlx::query_scalar("SELECT version FROM _sqlx_migrations ORDER BY version")
+                .fetch_all(&database.pool)
+                .await?;
+        if applied_versions != expected_versions {
             return Err(format!(
-                "database {:?} handed out under concurrency was not migrated",
+                "database {:?}, reporting current_database() = {reported_name:?}, handed out \
+                 under concurrency, had applied migrations {applied_versions:?}, expected \
+                 {expected_versions:?}",
                 database.name
             )
             .into());
         }
 
-        names.push(database.name);
+        reported_names.push(reported_name);
     }
 
-    let mut distinct_names = names.clone();
+    let mut distinct_names = reported_names.clone();
     distinct_names.sort();
     distinct_names.dedup();
-    if distinct_names.len() != names.len() {
+    if distinct_names.len() != reported_names.len() {
         return Err(format!(
-            "database names handed out concurrently were not all distinct: {names:?}"
+            "current_database() reported by the databases handed out concurrently were not all \
+             distinct: {reported_names:?}"
         )
         .into());
     }

@@ -71,3 +71,10 @@ An entry is a conduct correction or a validation of this project's own runs; a d
 **at:** e9bcfb4
 **Kind:** correction
 **Escalated?** no
+
+### 2026-09-19 — process — a delegation prompt quoted the verification half of a rule and dropped the hazardous-mechanism half
+**What happened:** A Mode B delegate was asked to prove a strengthened assertion could fail, and the prompt ended "then revert and confirm the revert with `git diff --name-only`". That phrasing echoes the second half of the standing rule on undoing a probe edit and silently omits its first half — that the revert comes from a copy under `tmp/`, because `git checkout -- <file>` and `git restore <file>` restore the whole working-tree file and drop every uncommitted edit in it. The delegate reverted its probe with `git checkout -- crates/core/tests/support/mod.rs`. Nothing was lost — the file was committed and carried no unstaged work, verified afterwards with `git diff --stat HEAD --` returning empty and the earlier counter fix still present at lines 37 and 69 — so the hazard did not fire. An earlier delegate on the same branch, given a prompt with no mechanism named at all, happened to choose a `tmp/` copy.
+**Rule:** When a delegation prompt asks for a probe that mutates a tracked file, name the revert mechanism, not just its verification: restore from a copy taken under `tmp/` before the mutation, then confirm with `git diff --name-only`. Quoting a rule's check while omitting its method is worse than quoting neither — the delegate reads a complete-looking instruction and fills the gap with whatever is ergonomic, and the ergonomic choice here is the one the rule exists to forbid. The outbound phase of a delegation executes every load-bearing clause the prompt carries, and a half-quoted rule is a load-bearing clause.
+**at:** 2b597a9
+**Kind:** correction
+**Escalated?** no
