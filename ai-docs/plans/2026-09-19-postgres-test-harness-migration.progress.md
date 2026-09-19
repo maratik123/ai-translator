@@ -87,6 +87,14 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 | G5 | 1 | the `[measured 0daa273 · …]` tag in § *What the tree holds today* carries a commit but no `path:lines` | design-internal | folded | tag now reads `[measured 128c2fb:crates/{shared,core,cli,migrate}/Cargo.toml:8 · …]` @ d29e0e4 |
 | G6 | 1 | consider surfacing `docs/09-build-and-deploy.md:12` to the owner separately after this task | design-internal | folded | D10 left exactly as it was, per the recommendation; the row is carried to the owner as a follow-up outside this task's authorised single corpus amendment @ d29e0e4 |
 | G7 | 1 | subtask 2's red observation presumes the image coordinates are reachable for a temporary mutation | design-internal | folded | § Test Design says the image is changed by editing the harness's own coordinates in place and reverting, with `git diff --name-only` confirming the revert; no configuration surface grown @ d29e0e4 |
+| G8 | 4 | § Test Design prescribes the concurrency trial asserts every reported current-database name is distinct and each carries the migrations, while the shipped trial compared harness-assigned names and checked `pg_extension` | design-internal | folded | design sentence kept as written; the CODE moved to match it — `current_database()` asked of the server and applied versions compared against the embedded migrator @ 9dec5b1 |
+| G9 | 4 | the `one_container_serves_the_whole_binary` bullet says "the two databases of the previous case", which the design's own ban on cross-trial dependence forbids | design-internal | folded | § Test Design now reads "two databases this trial takes for itself" @ 040dcdb |
+| G10 | 4 | subtask 3's prose says the gate-script sentences D12 enumerates are absent from its file set, but the ratchet's no-executable-lines comment shares a file subtask 3 does list | design-internal | folded | the items are named rather than counted, and the gated-set sentence extended to the ratchet script @ 040dcdb |
+| G11 | 4 | two claim tags take a file this task rewrites as their subject, and one tag states a row count | design-internal | folded | the version is D14's decision sourced from the registry bound; lockfile and `cargo tree` demoted to corroboration; the count deleted rather than re-measured @ 040dcdb |
+| G12 | 4 | the design's prescribed red observation for the start count was recorded as performed when a substituted mutant had been run instead | design-internal | folded | the substitution was recorded with what it is equivalent to and what it is weaker in; then the PRESCRIBED mutation was run by the orchestrator, observed RED, and the second container was seen left behind and removed @ 040dcdb |
+| G13 | 4 | the AC5 row attributed the criterion to subtask 3, which owns none of it | design-internal | folded | the AC Status row now attributes AC5 to the CI run on the pull request @ 2b597a9 |
+| G14 | 4 | when Group B rewrites the ratchet header and the build entry point, both sit inside the comment-reference gated set | design-internal | folded | subtask 3's contract now says so; the delegate then observed the gate RED on a planted markdown path in each of the two files @ 040dcdb |
+| G15 | 4 | D3 leaves to the implementor whether the trial verdict survives a teardown failure | design-internal | folded | D3 decides it: the runner's code is taken before teardown, a failure raises a green run and never replaces an earned failing status, and no panicking call carries the result out @ 040dcdb |
 
 ## Key discoveries (don't re-investigate)
 
@@ -111,6 +119,12 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 
 | id | raised | severity | status | verifying command |
 |----|--------|----------|--------|-------------------|
+| R1-1 | 1 | minor | open — **Design Amendment trigger**, orchestrator routes it | `sed -n '16,42p' crates/core/src/lib.rs` — the predicate at `:36-42` is `all(\|m\| m.version >= lowest.version)` with `lowest = min_by_key(\|m\| m.version)`, i.e. the definition of `min`. Probed over `[1]`, `[5,2,9]`, `[0,1,2]`, `[-7,1,3]`, `[9,4,1]`: all true. Falsifiable control `v >= 1` over the same five: false on `[0,1,2]` and `[-7,1,3]`, so the probe can report false. AC2 stays covered by `assert_eq!(lowest.version, 1)` at `:22-25`, so no hole — a redundant line that cannot fail. Amending means the `design-writer` Subagent edits § Test Design and Decomposition subtask 1 |
+| R1-2 | 1 | minor | open | `grep -n -A4 'fn exit_code' ~/.cargo/registry/src/*/libtest-mimic-0.8.2/src/lib.rs` → `:384-386` returns `ExitCode::from(101)` on failure; `sed -n '64,79p' crates/core/tests/database.rs` → the `Err` arm returns `ExitCode::FAILURE` (1) unconditionally. So when the trials fail **and** the teardown fails, 101 is replaced by 1 — narrowly contradicting the comment at `:67-72` ("keeps failing rather than having its status replaced") and D3's "never *replaces* the status of a run the trials already failed". No behavioural hole: every failing case still exits non-zero and the trial verdict still reaches the reader on stdout, which is D3's stated purpose |
+| R1-3 | 1 | minor | open | `awk '/^## GO notes/,/^## Key discoveries/' <this file> \| grep -E '^\\\| G' \| awk -F'\|' '{print $3}'` → seven rows, every one round 1; a constructed round-4 row is matched by the same pattern, so the absence is the table's. The Decisions log records that design-review round 4 returned GO and that "folding the GO notes surfaced a code non-compliance", so round 4's GO notes exist and have no row. The fold itself is traceable via `040dcdb` and `f1630d3`, so this is a traceability gap in the state file, not a stale design |
+| R1-4 | 1 | minor | open | Decisions log Step 8 red observation 3 vs `crates/core/tests/database.rs:157-165`. The recorded mutation (counter short-circuited to id `0`) made the trial fail at the harness's `CREATE DATABASE` (`database "reader_core_test_0" already exists`), not at the trial's own isolation assertions, so those assertions have not been shown to have a reachable failure mode. A sharper mutation reaches them: drop `.database(database)` from `connect_options` at `crates/core/tests/support/mod.rs:150-157`, which makes both pools report the same `current_database()`. The trial did fail, so nothing is cosmetic-and-green; the record is weaker than it reads |
+| R1-5 | 1 | — | accepted@1 — examined, not a defect | `sed -n '226,266p' crates/core/tests/database.rs` — the early return at `:255-263` drops the remaining `JoinHandle`s, detaching rather than cancelling those tasks. Test-position code on an already-failing path; every task is awaited on the success path, its error propagated with `??` and its panic surfaced through `JoinError`. All four concurrency-ownership questions answered |
+| R1-6 | 1 | — | accepted@1 — out of scope for this diff; a tooling hazard for agent-authored probes, hand to `ai-docs/harness-gaps.md` | `command -v grep; grep --version \| head -1` → **ugrep 7.8.4**, shadowing GNU grep 3.12 at `/bin/grep`. Against a constructed driver-URL line, a single-scheme pattern of the credential shape matches and a **four-way alternation** of the same shape returns *nothing* — no error, no diagnostic, just empty — while `/bin/grep` matches it. The failure is silent, so any sweep an agent writes in that alternation shape reports the clean answer for every possible tree. **The `PostToolUse` secret-leak hook is NOT affected and was wrongly implicated in this row's first draft: it fired on the draft itself and refused the write, which is a live demonstration that its own runner resolves a `grep` that handles the pattern.** The lesson is the probe AXIOM's, not the hook's — a `grep` result in the agent's Bash shell is evidence about that shell until a control has been seen to match, which is what caught this review's own credential sweep before its clean output was believed |
 
 ## Files touched
 
@@ -128,3 +142,88 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - `ai-docs/code-style.md` — the same justification, in the twin sentence the bands' table carries
 - `ai-docs/key-decisions.md` — KD-20 appended to § Repository and process; no existing row edited, KD-16 left as it stands
 - `docs/03-storage.md` — the test row amended to the harness that exists, and it plus the vector-extension row ticked; every other row of the page untouched
+
+## Self-Review (Round 1)
+
+**Verdict:** APPROVE
+
+**What was checked.** All five ACs against the shipped tree, not against the delegates' reports.
+AC1 — `vector_type_is_usable` at `crates/core/tests/database.rs:98-115` binds the literal and compares
+the round-trip exactly. AC2 — mutated `crates/core/migrations/0001_vector_extension.sql` to carry a
+second statement and ran `cargo test -p reader-core --lib`: exit 101, `left: "CREATE EXTENSION IF NOT
+EXISTS vector;\nCREATE TABLE sneaky (id integer);"` against `right: "CREATE EXTENSION IF NOT EXISTS
+vector"`; restored from a `tmp/` copy, `git diff --name-only` empty, re-run exit 0. So the exact-text
+assertion is load-bearing in both directions. AC3 — the two isolation trials and the concurrent trial
+read `current_database()` from the server rather than trusting the harness's own name. AC4 — the
+process-wide `CONTAINER_STARTS` at `crates/core/tests/support/mod.rs:37` is zero at rest and
+incremented at `:69`, the site that awaits the container start. AC5 — re-measured the CI paths filter
+against HEAD, not against the design's pin: `.github/workflows/ci.yml` carries `**/*.rs` (:40),
+`**/*.sql` (:41), `**/Cargo.toml` (:48), `Cargo.lock` (:49) under `rust:` and `**/*.rs` / `**/*.sql`
+under `commentrefs:` (:87,:89), pattern confirmed against a constructed control, so no filter entry
+was owed and none was added.
+
+Gates re-run against the shipped tree, each exit code read apart from stdout: `make panic-calls` 0,
+`make comment-refs` 0, `make file-limits` 0, `make lock-check` 0, `make import-guard` 0
+(`2 binary target(s), no forbidden path`), `make doc-check` 0, `cargo clippy --workspace --all-targets
+-- -D warnings` 0 — zero `error`/`warning` lines in either captured log. The design carries no
+`AC<N> verified by:` lines (pattern confirmed against a control), so § 2's re-run obligation was
+discharged over the design's `[measured …]` claims that the shipped code rests on.
+
+Also checked: no `let _ = <Result>` and no `.unwrap()` anywhere in the new Rust; the four `.expect()`
+calls are all test-position code and the panic gate is green. No `#[allow(…)]` added. Domain
+invariants — the only one this diff can reach is the forward-migration rule, and it holds by
+construction (one `.sql` added, none modified); the credential sweep ran per-scheme over every file
+the diff touches, each pattern first shown alive against its own constructed control, and returned
+nothing. Scope — `coverage-ratchet.txt`, `learnings.md`, `harness-gaps.md` and `context-status.md` are
+each mandated by a standing rule or written by the pre-commit hook, not scope creep;
+`rust-test-conventions.md` and KD-16 are absent from the diff and the `AGENTS.md` edit is confined to
+the coverage-tolerance paragraph, as D12 and answer 4.1 require. `docs/03-storage.md` has exactly rows
+7 and 8 ticked and every other box unticked, and `docs/09-build-and-deploy.md` is not in the diff.
+GO-notes round trip — the seven round-1 rows all resolve at `d29e0e4`, which precedes the first
+implementation commit `0d40e6a`.
+
+**Findings.** No `blocker` or `major` row clears the severity floor, so none is open and the verdict is
+APPROVE. **4 `minor` items**, recorded in the register rather than as table rows, in:
+`crates/core/src/lib.rs`, `crates/core/tests/database.rs` (with the design's D3), and the progress
+file itself (two).
+
+**One of them is a Design Amendment trigger, surfaced explicitly rather than filed as a code fix
+(R1-1).** `crates/core/src/lib.rs:36-42` asserts
+`MIGRATOR.migrations.iter().all(|m| m.version >= lowest.version)` where `lowest` is
+`min_by_key(|m| m.version)` — the predicate is the definition of `min`, so it is true for every
+possible migration set. Probed over five adversarial sets, including one carrying version `0` and one
+carrying a negative version: all five true; a falsifiable control predicate (`v >= 1`) over the same
+five inputs returns false on exactly those two, so the probe can report false and the all-true result
+is a property of the shipped predicate. AC2's "no other migration precedes it" is nonetheless fully
+covered by `assert_eq!(lowest.version, 1)` at `:22-25`, so this leaves no hole — it is a redundant
+line that cannot fail, which is the shape `AGENTS.md` § *Patterns* 2 names. The design prescribes it
+(§ Test Design, "and no migration in the set carries a version below it"; Decomposition subtask 1,
+"no migration carries a lower version"), so removing it from the code would make the design stale:
+**Design Amendment trigger — spawn the `design-writer` Subagent to amend
+`ai-docs/plans/2026-09-19-postgres-test-harness-migration.design.md` § Test Design and Decomposition
+subtask 1; recipe at `.claude/skills/task/SKILL.md` Step 11 fail-loud table.** Severity is `minor` by
+the mechanical floor: it violates no AC, D or gate id, and no command fails against the shipped tree.
+
+**Out of scope for this diff, handed to the orchestrator rather than filed as a finding.** While
+running the credential sweep, the shell's `grep` on this machine resolved to **ugrep 7.8.4**, which
+shadows GNU grep 3.12 at `/bin/grep` and **fails to match a four-way alternation** of the
+driver-URL-with-password shape — returning empty, with no error and no diagnostic, while a
+single-scheme pattern matches the same constructed line and `/bin/grep` matches the four-way form
+correctly. A sweep written in that shape therefore reports the clean answer for every possible tree.
+This review's own credential sweep was written that way first, and its clean output was caught as
+meaningless only because a control was run before the result was believed; it was then redone
+per-scheme, each pattern shown alive against its own control.
+
+**A first draft of this paragraph blamed the `PostToolUse` secret-leak hook for the same blind spot,
+and that was wrong.** The hook fired on the draft, refused the write, and quoted the offending line
+back — a live demonstration that its own runner resolves a `grep` that handles the pattern the
+agent's Bash shell does not. The claim was corrected here and in register row R1-6 rather than merely
+withdrawn in conversation. The residual item worth recording in `ai-docs/harness-gaps.md` is the
+tooling hazard for **agent-authored probes**, not a defect in the hook: nothing in this diff
+introduced it and nothing in this diff is affected, since D5 avoids the credential shape entirely.
+
+| # | File:line | Severity | Finding | Status |
+|---|-----------|----------|---------|--------|
+
+_No `blocker`/`major` row is open; per the findings-format rule the `minor` items ride along as
+register rows rather than table rows._
