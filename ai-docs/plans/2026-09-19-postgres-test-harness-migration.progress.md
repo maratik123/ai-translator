@@ -8,13 +8,13 @@ _Updated: 2026-09-19 12:01_
 **Last build:** PASS
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 8 — subtask 5 of 5 complete; Group B done, all five subtasks committed
-**last_passed_gate:** make verify (full) | 2026-09-19T12:01:11Z | 6fb4505
+**current_step:** Step 9.5 — docs updated
+**last_passed_gate:** make verify (full) + per-AC sweep | 2026-09-19T12:06:09Z | 14b60ac
 **entry_args:** 13
 
 ## Next action
 
-**Do this immediately:** push the branch (Step 8 visibility rule — no pull request exists yet), then Step 9 Verify.
+**Do this immediately:** Step 10 — spawn `self-review` over the whole branch diff.
 
 ## Subtasks
 
@@ -69,6 +69,13 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 8 (subtask 5)**: the corpus row's five clauses were changed exactly as D13's table prescribes and no further. Unchanged: the image, the socket and the version parenthetical, byte-identical in the diff. Replaced, each with its one-clause reason in the same sentence: `OnceCell` (a value in a static is never dropped), ryuk (the crate ships none), `#[sqlx::test]` (it takes its connection only from the variable the suite may not read). Kept as properties: one container per test binary, and a database per test with the migrations applied. The two rows this task closes in full are ticked, and nothing else moved — every other checkbox of the storage page is still `[ ]`, and the build-and-deploy page is not in the diff at all, so the Podman-socket row D10 declines is untouched and unticked. The edit leaves no relative link, which the markdown link checker confirms by resolving every one in the tree.
 - **Step 8 (Group B close)**: `make verify` exited 0 at `6fb4505` with every sub-target executed — format, build, clippy, doc, test, lockfile, file limits, actionlint, shellcheck, comment references, the panic gate and the dependency-direction gate — no error and no warning line, `test result: ok` on all seven binaries, 1 unit test and 5 database trials. The coverage ratchet did not run and could not have: Group B staged no `.rs`, `.sql`, manifest or lockfile, which is the hook's silent-skip condition, and the recorded high-water mark is therefore unchanged by this group.
 
+- **Step 9**: every AC verified by the orchestrator's own command over the AC's own scope, not by reading a test's verdict. AC2: one migration file, zero semicolons, zero comment lines, shown with `cat -A`. AC4: zero pgvector containers before the run and zero after. AC1/AC3: the trial bodies read — a bound-parameter vector round-trip, `current_database()` asked of the server, cross-database isolation checked by a table visible in one and not the other, and applied versions compared against the embedded migrator.
+- **Step 9**: domain-invariant sweep — the only invariant this diff can reach is the forward-migration rule, and it holds by construction: one `.sql` file added, none modified. The other four subjects (cache keys, retrieval, request parameters, eval conditions) have no code in the workspace yet.
+- **Step 9**: a harness gap was filed rather than worked around — CI's relative-link step scans raw text, so a link form quoted inside backticks or inside a fenced block is flagged as a broken link. Reproduced on four constructed cases with a control; the step already carries a hard-coded escape for one placeholder file name.
+
+- **Step 9.5**: `ai-docs/context.md` was deliberately NOT edited. Its § Status says the page fixes the shape and that progress is read from the repository, so it carries no progress bullet to bump; and its architecture row summarising `reader-migrate` as the one place migrations are applied is not falsified by this diff — the corpus row it summarises is untouched and still unticked, and the corpus has named a test mechanism that migrates its own databases since before this task.
+- **Step 9.5**: the removed-name sweep found the mechanisms surviving on exactly two live surfaces, both deliberate — the new key decision, which records the rejection of one of them, and the amended corpus row, which names each as the reason it was replaced. No stale prescription survives.
+
 ## GO notes
 
 | # | round | note | kind | route | resolution |
@@ -94,11 +101,11 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 
 | AC | Status |
 |----|--------|
-| AC1 | PASS — `vector_type_is_usable` (commit df64b2a), verified with the red observation that a plain `postgres` image fails it |
-| AC2 | PASS — `embedded_migrations_satisfy_ac2` unit test (commit 0d40e6a), no container needed |
-| AC3 | PASS — `migrations_are_applied_to_every_database`, `each_trial_gets_its_own_database`, `concurrent_requests_get_distinct_databases` (commit df64b2a) |
-| AC4 | PASS — `one_container_serves_the_whole_binary` (commit df64b2a), verified with the red observation that a forced trial failure still ends with the container removed and a non-zero exit |
-| AC5 | NOT_TESTED — discharged by the CI run on the pull request itself, not by any subtask. The Rust jobs are reached by the `**/*.rs`, `**/*.sql` and manifest path filters, and the runner image ships the Docker daemon the container crate falls back to. Recorded against subtask 3 earlier, which was wrong: subtask 3 rewrites coverage-tolerance prose and owns none of AC5. |
+| AC1 | PASS — bound-parameter vector round-trip in `vector_type_is_usable`; the red direction was observed with a plain `postgres` image, which fails at the migration step |
+| AC2 | PASS — `crates/core/migrations/` holds one file; `cat -A` shows `CREATE EXTENSION IF NOT EXISTS vector` plus one newline, zero semicolons, zero comment lines; the unit test asserts version 1 and the description the loader derives |
+| AC3 | PASS — `each_trial_gets_its_own_database` asks the server `current_database()` for both and checks a table made in one is invisible from the other; `migrations_are_applied_to_every_database` compares applied versions against the embedded migrator; `concurrent_requests_get_distinct_databases` does both under contention |
+| AC4 | PASS — process-wide start counter asserted first, postmaster instant corroborating; zero pgvector containers before the run and zero after; the assertion was observed RED under the design's prescribed mutation |
+| AC5 | PENDING CI — discharged by the run on the pull request, which does not exist yet. The Rust jobs are reached by the `**/*.rs`, `**/*.sql` and manifest path filters, and the runner image ships a Docker daemon |
 
 ## Review register
 
