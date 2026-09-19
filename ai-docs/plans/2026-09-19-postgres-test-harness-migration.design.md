@@ -11,7 +11,7 @@ The workspace's skeleton members declare no dependency at all: the root manifest
 `[workspace.dependencies]` table carries a comment saying so and nothing else
 `[measured 0daa273:Cargo.toml:16-18 · awk 'NR>=16 && NR<=18 {print NR": "$0}' Cargo.toml → "16: [workspace.dependencies]" / "17: # A dependency is added here only once a member's code compiles against it;" / "18: # nothing does yet, so the table is empty."]`,
 and each member's `[dependencies]` section is empty
-`[measured 0daa273 · for c in shared core cli migrate; do sed -n '/^\[dependencies\]/,$p' crates/$c/Cargo.toml; done → the section header alone in each]`.
+`[measured 128c2fb:crates/{shared,core,cli,migrate}/Cargo.toml:8 · for c in shared core cli migrate; do awk '/^\[dependencies\]/{print FILENAME":"NR": "$0; f=1; next} f{print FILENAME":"NR": "$0}' crates/$c/Cargo.toml; done → ':8: [dependencies]' in each of the four and no line after it]`.
 `crates/core/src/lib.rs` is a single `//!` line and carries no item
 `[measured 0daa273:crates/core/src/lib.rs · cat crates/core/src/lib.rs → "//! The translation engine: segmentation, retrieval, prompting and validation."]`.
 There is no `migrations` directory, no test target, and no code that opens a database.
@@ -170,6 +170,47 @@ and it is a dev-dependency, so nothing it brings reaches a shipped binary. The u
 are untouched by this: they keep the default harness, and only the database-backed integration target
 declares its own.
 
+**How a trial reaches a harness that `main` owns.** A trial runner is `FnOnce() -> Result<(), Failed>
++ Send + 'static`
+`[measured libtest-mimic@0.8.2 · awk 'NR>=135 && NR<=137 {print NR": "$0}' libtest-mimic-0.8.2/src/lib.rs → ':135: pub fn test<R>(name: impl Into<String>, runner: R) -> Self' / ':137: R: FnOnce() -> Result<(), Failed> + Send + 'static,']`,
+so no closure may *borrow* the harness. The ergonomic reach from there is a leak or a `static`, either
+of which silently reinstates the never-dropped container this decision exists to rule out — so the
+model is written down rather than left to the implementor:
+
+- The harness is shared by **`Arc<Harness>`**, one clone moved into each trial closure. It is never
+  leaked and never parked in a `static`; those two words are the whole point of the paragraph.
+- The container sits behind a **take-once slot inside the harness** — an `Option` under a lock —
+  because the crate's removal consumes the handle (D3). `shutdown` takes `&self`, empties the slot and
+  removes what it found, so it works through an `Arc` and depends on no reference count; a second call
+  finds the slot empty and is a no-op rather than an error.
+- Sole ownership comes back to `main` because `libtest_mimic::run` **takes the trial vector by value
+  and drains it**
+  `[measured libtest-mimic@0.8.2 · grep -n 'pub fn run' libtest-mimic-0.8.2/src/lib.rs → ':491: pub fn run(args: &Arguments, mut tests: Vec<Trial>) -> Conclusion {'; and awk 'NR>=560 && NR<=561 {print NR": "$0}' → ':560: let iter = Mutex::new(tests.into_iter());']`,
+  so when it returns, every closure and every clone it held is gone. `main` then calls `shutdown`.
+
+**The thread model is the runner's default, kept, and the harness is built for it.** The runner splits
+trials across threads by default
+`[measured libtest-mimic@0.8.2 · awk 'NR>=535 && NR<=539 {print NR": "$0}' libtest-mimic-0.8.2/src/lib.rs → num_threads falling through to ':538: .or_else(|| std::thread::available_parallelism().ok().map(Into::into))'; and awk 'NR>=561 && NR<=564 {print NR": "$0}' → ':561: thread::scope(|scope| {' / ':564: scope.spawn(|| {']`,
+so trials run in parallel unless the operator passes a thread count. That default is kept — a harness
+that needed serialising would be a harness with a shared-state defect — and three things follow:
+
+- **Database names are unique by construction, not by hope.** The harness holds an atomic counter;
+  each request takes the next value with a fetch-and-add and builds the name from a fixed prefix and
+  that number's decimal digits. Nothing else reaches the statement, so the name is unique under any
+  thread count and no caller-supplied text is ever interpolated into `CREATE DATABASE`.
+- **The runtime handle travels with the harness.** `main` builds a multi-threaded runtime and moves a
+  clone of its handle into each trial beside the `Arc`; the trial body blocks on that handle. Blocking
+  on a handle is legal from a thread that is not a runtime worker and refused from one that is, and
+  the runner's threads are plain scope threads — so the trials qualify, and so does `main`, which
+  drives the shutdown the same way. The distinction is the same one D3 turns on from the other side:
+  a thread with no runtime in reach at all is where the container's destructor fails, which is why
+  the removal is an explicit call and not a drop.
+- **The shared path is exercised rather than assumed** (`AGENTS.md` § *Test Conventions*): § Test
+  Design adds a trial that asks for several databases concurrently and asserts they are all distinct
+  and all migrated. The harness spawns no task and owns no channel, so there is no cancellation path
+  to drive; what it shares is the counter, the admin pool and the take-once slot, and that trial —
+  with the parallel run behind it — is what drives them.
+
 **D3 — The container is removed by an explicit call inside the async runtime, never by letting the
 handle drop outside one.** The destructor's helper resolves the current runtime handle before doing
 anything else
@@ -178,8 +219,11 @@ and `main` is not inside a runtime, so a handle dropped there would resolve a ha
 exist. The harness therefore exposes a shutdown that `main` drives through the runtime it owns,
 calling the crate's own consuming removal
 `[measured testcontainers@0.28.0 · grep -n 'pub async fn rm' testcontainers-0.28.0/src/core/containers/async_container.rs → ':205: pub async fn rm(mut self) -> Result<()> {']`.
-Its result is reported, not discarded: a container that could not be removed is a message on the way
-out, because `AGENTS.md` § *Code Style* forbids discarding a `Result`.
+Because that call consumes the handle, the handle cannot simply live in the harness as a field every
+trial can see: it lives in the take-once slot D2 specifies, which `shutdown` empties. Its result is
+reported, not discarded: a container that could not be removed is a message on the way out, because
+`AGENTS.md` § *Code Style* forbids discarding a `Result`. The admin pool is closed before the removal,
+so the teardown does not race a live connection against a disappearing server.
 
 **D4 — The image is the floating tag the task names, reached by overriding the module image's name and
 tag.** The spec's own key-decision row fixes the floating tag («Как есть»), and the tag resolves today
@@ -206,10 +250,24 @@ TLS is disabled explicitly in the options rather than left to the default negoti
 crate is built without a TLS backend (D7) and a server on a mapped loopback port has nothing to
 protect.
 
-**D6 — The first migration is a sequential `0001`, and its file is immutable once committed.**
-Sequential four-digit versions make AC2's second half — that no migration precedes it — readable by
-eye rather than by arithmetic on timestamps, and every later migration continues the series. The file
-is written once and never edited: the migrator records a checksum per applied version
+**D6 — The first migration is a sequential `0001`; its file carries the statement and nothing else;
+and it is immutable once committed.** Sequential four-digit versions make AC2's second half — that no
+migration precedes it — readable by eye rather than by arithmetic on timestamps, and every later
+migration continues the series.
+
+**No comment line, and the reason is mechanical rather than stylistic.** The migration loader reads
+the file whole and hands the bytes through unchanged, and the only `--` it understands is the
+transaction opt-out, which it *detects* rather than strips
+`[measured sqlx-core@0.9.0 · awk 'NR>=225 && NR<=236 {print NR": "$0}' sqlx-core-0.9.0/src/migrate/source.rs → ':225: let sql = fs::read_to_string(&entry_path)', ':234: let no_tx = sql.starts_with("-- no-transaction");' and ':236: let checksum = checksum_with(&sql, &config.ignored_chars);'; and grep -n '"--' on the same file returns only ':234', so nothing removes a comment]`.
+So a single `--` line would land inside the embedded statement text *and* inside the checksum, and the
+exact-text assertion § Test Design specifies for AC2 would go red — whose cheap repair is to weaken it
+to a substring, which is the failure that section warns against in the same breath. The file therefore
+holds one statement and one newline. The rationale lives in this design, which is where a reader who
+needs it can be pointed; the file itself says nothing. **What a later migration may carry is not
+decided here** — only this one is constrained, and it is constrained because it is the one an exact
+assertion is pinned to.
+
+The file is written once and never edited: the migrator records a checksum per applied version
 `[measured sqlx-core@0.9.0 · grep -n 'pub [a-z_]*:' sqlx-core-0.9.0/src/migrate/migration.rs → the Migration fields version, description, migration_type, sql, checksum, no_tx and the AppliedMigration fields version and checksum]`,
 so editing an applied migration's text is the redefinition `AGENTS.md` § *API Stability* carve-out and
 INV-14 forbid. There is nothing to roll back here and the design says so plainly: the statement is
@@ -354,8 +412,9 @@ as a Rust comment is
 Nothing this task writes — in the migration, in `crates/core/src/lib.rs`, in the support module or in
 the test target — may carry a markdown path, an acceptance-criterion id, a decision anchor, an issue
 number outside `TODO(#…)`, a repository path or a URL. Two consequences are specific enough to be
-worth naming: the migration file states *why* the extension is created, if it states anything, without
-pointing at the page that decided it; and KD-19's ruling binds every doc comment this task writes —
+worth naming: **the migration file carries the statement and no comment at all** (D6 decides it and
+gives the reason, which is stronger than the reference ban), so the ban has nothing to bite on there
+and binds the migrations that come later instead; and KD-19's ruling binds every doc comment this task writes —
 inside `crates/core` the crate's own symbols are written in the directory-name form, and a `core::`
 path is unwritable in any gated comment outside that directory
 `[measured 0daa273:ai-docs/key-decisions.md:51 · grep -n 'KD-19' ai-docs/key-decisions.md → ':51:' carrying the KD-19 row whose consequence fixes the directory-name form for a crate's own contract symbol and states that a "core::" path is unwritable in a gated comment outside "crates/core"]`.
@@ -373,6 +432,21 @@ passes because both container crates and the runner are declared as dev-dependen
 skips by the rule measured at the top of § Approach
 `[derived → the dependency-direction gate on the subtask-1 commit]`.
 
+**The workflow's own paths filter is checked here because the file asks for it in writing**, and a
+universal "no gate needs changing" that skipped it would rest on the one place the repository names as
+mandatory. Its comment reads that any future Rust or harness artefact must be added in the same pull
+request that introduces it, or its gate silently stops running. The artefact classes this task
+introduces are Rust sources, a SQL migration and the cargo manifests, and each is already named in
+both filters that would have to reach them
+`[measured 128c2fb:.github/workflows/ci.yml:36,39-49,86-89 · grep -n "rust:\|commentrefs:\|'\*\*/\*\.rs'\|'\*\*/\*\.sql'\|'\*\*/Cargo.toml'\|'Cargo.lock'\|Any future Rust or harness artefact" .github/workflows/ci.yml → ':36:' the standing instruction, ':39: rust:' over ':40: - "**/*.rs"', ':41: - "**/*.sql"', ':48: - "**/Cargo.toml"', ':49: - "Cargo.lock"', and ':86: commentrefs:' over ':87: - "**/*.rs"' and ':89: - "**/*.sql"']`,
+so **no filter entry is added by this task** — the check is recorded, not a change. One neighbouring
+fact is recorded with it rather than acted on: no filter names `docs/**`, so a commit touching only
+the corpus page reaches no job
+`[measured 128c2fb:.github/workflows/ci.yml · grep -n 'docs/' .github/workflows/ci.yml → only ai-docs paths, ':55: - "ai-docs/**"' among them, and no bare docs entry; a constructed control line carrying "docs/**" was matched by the same pattern, so it ran]`.
+That is a property `docs/` already had before this task and not one subtask 5 introduces, and this
+pull request reaches the harness job through its other paths regardless, so nothing is proposed for
+it here.
+
 The coverage ratchet acquires a new precondition that is worth stating out loud rather than
 discovering: it refuses a commit when the suite is not green, and from this task on the suite needs a
 container runtime, so **every commit that stages a `.rs`, a `.sql` or a manifest now needs a reachable
@@ -384,8 +458,8 @@ A commit that stages only documents is unaffected, which is most of a run.
 
 | # | Task | Files | Depends on |
 |---|------|-------|------------|
-| 1 | **The dependency set, the first migration, and the embedded migrator.** Add the workspace dependency entries with `cargo add` (never a hand-edited lockfile) and rewrite the root manifest's now-false comment about the empty table (D12). Declare `sqlx` as a normal dependency of `reader-core` with default features off and the set D7 fixes, and the dev-dependencies the next subtask needs — the container crate, its Postgres module, the runner and the async runtime — so the manifest is written once. Add `crates/core/migrations/0001_vector_extension.sql` carrying the single `CREATE EXTENSION IF NOT EXISTS vector` statement (D6), and expose the embedded migrator from `crates/core/src/lib.rs` with a doc comment that obeys the reference ban and KD-19 (§ *What the gates will read afterwards*). Add the `#[cfg(test)]` module beside it asserting the embedded set against AC2 — the lowest-versioned migration is version 1, described `vector_extension`, no migration carries a lower version, and its statement is exactly the one above. That test needs no container and is the half of AC2 that a machine without a runtime can still check. | `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` | — |
-| 2 | **The container harness and the database-backed test target.** Declare the target with its own `main` in `crates/core/Cargo.toml` (`harness = false`). Write the support module under `crates/core/tests/support/`: start one container from the overridden image (D4), build one admin pool over connect options assembled field by field with TLS disabled and no password (D5), hand out a freshly created and migrated database per caller, and expose the shutdown `main` drives through its runtime, whose result is reported rather than discarded (D3). Write the test target: `main` builds the runtime, starts the harness, registers the trials § Test Design names, runs them, shuts the harness down, and propagates the runner's verdict as the process's exit status. | `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs` | 1 |
+| 1 | **The dependency set, the first migration, and the embedded migrator.** Add the workspace dependency entries with `cargo add` (never a hand-edited lockfile) and rewrite the root manifest's now-false comment about the empty table (D12). Declare `sqlx` as a normal dependency of `reader-core` with default features off and the set D7 fixes, and the dev-dependencies the next subtask needs — the container crate, its Postgres module, the runner and the async runtime — so the manifest is written once. Add `crates/core/migrations/0001_vector_extension.sql` carrying the single `CREATE EXTENSION IF NOT EXISTS vector` statement and **no comment line** (D6 — the loader keeps the file's bytes verbatim, so a comment would land inside both the embedded text and the checksum), and expose the embedded migrator from `crates/core/src/lib.rs` with a doc comment that obeys the reference ban and KD-19 (§ *What the gates will read afterwards*). Add the `#[cfg(test)]` module beside it asserting the embedded set against AC2 — the lowest-versioned migration is version 1, described `vector_extension`, no migration carries a lower version, and its statement is exactly the one above. That test needs no container and is the half of AC2 that a machine without a runtime can still check. | `Cargo.toml`, `Cargo.lock`, `crates/core/Cargo.toml`, `crates/core/migrations/0001_vector_extension.sql`, `crates/core/src/lib.rs` | — |
+| 2 | **The container harness and the database-backed test target.** Declare the target with its own `main` in `crates/core/Cargo.toml` (`harness = false`). Write the support module under `crates/core/tests/support/`: start one container from the overridden image (D4), build one admin pool over connect options assembled field by field with TLS disabled and no password (D5), hand out a freshly created and migrated database per caller, and expose the shutdown `main` drives through its runtime, whose result is reported rather than discarded (D3). Hold the container in a take-once slot and hand the harness out as an `Arc` — never a leak, never a `static` — with the per-database name built from a fixed prefix and an atomic counter so it is unique under the runner's default parallelism (D2). Write the test target: `main` builds a multi-threaded runtime, starts the harness, registers the trials § Test Design names — each closure taking an `Arc` clone and a runtime-handle clone — runs them, shuts the harness down after `run` returns, and propagates the runner's verdict as the process's exit status. | `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs` | 1 |
 | 3 | **Correct the statements this diff falsifies (D12).** Rewrite the tolerance paragraph's reason clause and its twin in the ratchet script's header so both say what is now true — a crate carries a test, and the tolerance still has no drift series behind it — leaving the tolerance value and the script's conditional branches untouched. Rewrite the file-size bands' justification in the build entry point's comment and in its twin in the code-style reference to the same judgement: the crates carry their first code, and the bands still wait for a real distribution, so they do not move. Leave the condition-governed gate-script sentences § D12 enumerates alone; they are absent from this file set on purpose, because an untouched listed file reads as a missed site. The build entry point is in the comment-reference gated set, so a rewritten comment there obeys the same ban as a Rust one. | `AGENTS.md`, `.githooks/coverage-ratchet.sh`, `Makefile`, `ai-docs/code-style.md` | 2 |
 | 4 | **Record the harness decision where it will be looked for.** Add a key-decision row, in the page's own shape — decision, why, consequence, source — numbered after the last row the page carries, stating that the database-backed target owns its `main` so that one container serves the binary *and* is removed when the run ends, and that `#[sqlx::test]` is not the vehicle because its only connection source is the variable the suite is forbidden to read. The *consequence* field carries what a later test author inherits: a trial is registered in `main`, an unregistered one is a denied lint rather than a silent pass, and the lift threshold D9 fixes. The row also records that the corpus row naming the old mechanism was amended in the same pull request on the owner's authorisation, so a later reader meets the amendment and its reason together. The *source* field is backticked prose, not a markdown link, and names this design at the path it carries after Step 12 — `ai-docs/plans/done/2026-09-19-postgres-test-harness-migration.design.md` § D1–D3 and § D13 — because the pre-retirement path is stale before the pull request opens. | `ai-docs/key-decisions.md` | 2 |
 | 5 | **Amend the corpus row and tick what this task closes in full (D13).** Rewrite `docs/03-storage.md`'s test row so the corpus describes the harness that exists: the image and the socket unchanged, one container per test binary owned by the test binary's own `main`, the container removed by an explicit call from that `main`, and a database per test created and migrated by the harness itself — each replacement carrying its one-clause reason, and the version parenthetical left exactly as it stands. Written in Russian, like the page. Then tick the rows this task closes in full — the amended test row and the vector-extension row — and leave every other checkbox on that page and on `docs/09-build-and-deploy.md` unticked, including the Podman-socket row D10 declines. **Touch no other rule text:** the container-cleanup and `DATABASE_URL` sentences of `AGENTS.md` § *Build & Test*, the matching paragraph of `ai-docs/rust-test-conventions.md` and KD-16 stay as they are, which is what the owner's answer requires. Trace any relative link this edit leaves with `realpath` before committing, because the harness job's link check sweeps every tracked markdown file. | `docs/03-storage.md` | 2 |
@@ -396,7 +470,11 @@ A commit that stages only documents is unaffected, which is most of a run.
 every document subtask depends on them and on none of the others, so no dependency chain forces an
 interleave and they cluster into one group. Two groups is within the default maximum of four, so no
 user approval is needed. The owner's round-4 answers added subtask 5 without moving a boundary: it is
-a markdown edit, so it joins the group that already holds the document subtasks.
+a markdown edit, so it joins the group that already holds the document subtasks. The review round
+after it moved no boundary either — every item it raised lands inside a subtask that already exists
+(the migration's contents and the exact assertion in 1, the sharing and thread models in 2, the
+workflow's paths filter recorded rather than changed), so `M`, the grouping and the change-type
+homogeneity are all unchanged and re-checked rather than merely restated.
 
 - **Entry into Group A:** spawn `/context-reset` per `.claude/skills/context-reset/SKILL.md`
   § Compaction recovery (re-entry). The first group takes a handoff exactly as every later one does.
@@ -472,8 +550,11 @@ carries its own measurement where it is used.
   `1`, the description `vector_extension`, and a statement whose trimmed text is exactly
   `CREATE EXTENSION IF NOT EXISTS vector`; and no migration in the set carries a version below it. The
   assertion is on the exact text, not on a substring: a substring assertion passes for a file that
-  grew a second statement, which is the half of AC2 that matters
-  `[derived → AC2]`.
+  grew a second statement, which is the half of AC2 that matters. `trim` is there for the file's
+  trailing newline and for nothing else — the loader keeps every other byte, comments included (D6),
+  so **if this case ever goes red the repair is the migration file, never the assertion.** Weakening
+  it to a substring, or teaching it to strip comment lines, hands back exactly the property it exists
+  to hold `[derived → AC2]`.
 - **Why it lives here and not in the container target:** it asserts what the *repository* embeds, not
   what a database did with it, so it must stay runnable on a machine with no container runtime
   `[derived → AC2]`.
@@ -511,6 +592,14 @@ Trials:
   identical postmaster start instant, which is the server's own evidence that they are one server
   (D11); the harness's own container-start count is asserted to be one beside it, as the cheap
   cross-check whose disagreement with the first half would itself be the finding `[derived → AC4]`.
+- **`concurrent_requests_get_distinct_databases`** — the shared path the runner's default parallelism
+  puts the harness on is driven rather than assumed (`AGENTS.md` § *Test Conventions*): one trial asks
+  for several databases from concurrent tasks, joins them, and asserts every reported current-database
+  name is distinct and every one of them carries the migrations. It is the counter, the admin pool and
+  the creation path under contention that this drives — the parallel *run* exercises them too, but
+  only incidentally and only when the operator has not passed a thread count, which is not a property
+  a test may rest on. The harness spawns no task and owns no channel, so this diff opens no
+  cancellation path and none is asserted `[derived → AC3 and AC4]`.
 
 ### Red observations required before the group's last commit
 
@@ -520,7 +609,11 @@ green suite that has never been seen red is a claim about the suite (`AGENTS.md`
 - **The extension check really checks the extension.** Point the harness at the plain `postgres` image
   of the same major version and confirm `vector_type_is_usable` fails with the server's own
   unknown-type error. This is the control that separates "the image carries pgvector" from "the query
-  ran" `[derived → AC1]`.
+  ran". **The image is changed by editing the harness's own image coordinates in place and reverting
+  the edit afterwards** — the harness grows no environment variable, no feature flag and no
+  configuration surface for it, because a switch that exists only to be flipped during one verification
+  is a permanent surface bought for a single use, and `git diff --name-only` before the commit is what
+  confirms the revert landed `[derived → AC1]`.
 - **A machine with no runtime is told loudly.** Run the suite with the socket variable pointing at a
   path that does not exist and confirm the target fails with a connection error rather than skipping,
   reporting zero tests, or passing. Confirm the mutated value is what the process actually saw before
