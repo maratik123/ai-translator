@@ -47,3 +47,10 @@ This log starts empty.
 **Gap:** latent today, since no tracked `.bash` or `.mk` file exists — but an extensionless hook added under `.githooks/`, which is git's ordinary spelling, would be silently ungated while both documents state it is covered.
 **Proposed edit:** bring the two prose lists into agreement with the scanner's own language map, and replace the `.githooks/**` directory claim with the extension rule the code implements.
 **at:** 136b290
+
+### 2026-09-19 — `/improve` Step 5 prescribes an English commit subject, which the language split forbids
+**target:** `.claude/agents/self-improve.md` § Step 5 item 2b
+**Observed:** the Commit B template is given literally as `chore(learnings): backfill Escalated? / Superseded by: for entries <date1>, <date2>, ...`. A run that followed it produced an English commit subject whose own body was Russian; self-review raised it as a major against `AGENTS.md` CRITICALLY 1 — *commit messages and pull-request bodies* sit on the Russian surface — and the subject was amended before the push.
+**Gap:** the contract instructs the violation, so a run following Step 5 faithfully reproduces it. Nothing catches it except a review standing between the commit and the push, and after a push the only repair is a force-push, which § *Permissions* denies.
+**Proposed edit:** give the Commit B template in Russian, or drop the literal subject and name the fields the message must carry plus a pointer to the language split.
+**at:** 53adf8c
