@@ -68,13 +68,17 @@ fn main() -> std::process::ExitCode {
     // what a clean removal exits with. A removal failure never overwrites
     // it with a panic — it is reported on stderr and forces a failing exit
     // status of its own, so a leaked container cannot exit zero even when
-    // every trial passed, and a run the trials already failed keeps failing
-    // rather than having its status replaced.
+    // every trial passed. When the trials already failed, that verdict is
+    // kept rather than replaced by the teardown failure's own status.
     match runtime.block_on(harness.shutdown()) {
         Ok(()) => run_exit_code,
         Err(err) => {
             eprintln!("failed to remove the shared container: {err}");
-            std::process::ExitCode::FAILURE
+            if conclusion.has_failed() {
+                run_exit_code
+            } else {
+                std::process::ExitCode::FAILURE
+            }
         }
     }
 }
