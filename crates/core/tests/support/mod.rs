@@ -27,6 +27,15 @@ const ADMIN_DATABASE: &str = "postgres";
 const DATABASE_NAME_PREFIX: &str = "reader_core_test_";
 const POSTGRES_PORT: u16 = 5432;
 
+/// How many containers this process has started, across every [`Harness`]
+/// constructed in it. Process-wide rather than a harness field: the claim
+/// "one container for the whole test binary" is a claim about the process,
+/// and a per-instance counter would miss a second harness built anywhere
+/// else in the same binary. Incremented at the site that awaits the
+/// container start, never in a constructor, so a second start anywhere is
+/// observable.
+static CONTAINER_STARTS: AtomicU32 = AtomicU32::new(0);
+
 /// A database created and migrated for one trial.
 pub struct Database {
     /// A pool connected to the trial's own database.
@@ -42,7 +51,6 @@ pub struct Harness {
     host: String,
     port: u16,
     database_counter: AtomicU64,
-    container_starts: AtomicU32,
 }
 
 impl Harness {
@@ -58,6 +66,7 @@ impl Harness {
             .with_name(PGVECTOR_IMAGE_NAME)
             .with_tag(PGVECTOR_IMAGE_TAG);
         let container = image.start().await?;
+        CONTAINER_STARTS.fetch_add(1, Ordering::SeqCst);
         let host = container.get_host().await?.to_string();
         let port = container.get_host_port_ipv4(POSTGRES_PORT).await?;
 
@@ -71,14 +80,13 @@ impl Harness {
             host,
             port,
             database_counter: AtomicU64::new(0),
-            container_starts: AtomicU32::new(1),
         })
     }
 
-    /// How many containers this harness has started — the trials assert it
+    /// How many containers this process has started — the trials assert it
     /// beside the server's own evidence that one server backs every database.
     pub fn container_starts(&self) -> u32 {
-        self.container_starts.load(Ordering::SeqCst)
+        CONTAINER_STARTS.load(Ordering::SeqCst)
     }
 
     /// Creates a fresh database, applies `core`'s migrations to it, and
