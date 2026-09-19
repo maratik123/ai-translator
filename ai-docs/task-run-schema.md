@@ -44,7 +44,7 @@ omitted on that path. The fallback MUST NOT emit any key absent from this table.
 | `findings_first_seen` | object `{blocker,major,minor,nit}` int | same rows, restricted to those absent from the preceding round — **coupled** to its degeneracy signature, see § *Counting units* | fallback-optional |
 | `objections` | int | **status** cells containing `⚠️ Objected` (substring match) — the marker is counted only in the row's status cell, never elsewhere in the row | fallback-optional |
 | `objections_reopened` | int | **status** cells containing `🔁 Re-opened` (substring match) — same restriction | fallback-optional |
-| `files_touched` | array\<string\> | `` ^-[[:space:]]+`<path>` `` lines under `## Files touched` — one or more spaces after the dash | fallback-optional |
+| `files_touched` | array\<string\> | the **set** of backticked paths in the leading comma-separated chain of each `` ^-[[:space:]]+`<path>` `` bullet under `## Files touched` — one or more spaces after the dash; a bullet MAY name several paths, a backticked word inside its description is not one, and a path two bullets name is one entry. Order is order of first appearance | fallback-optional |
 | `instruction_corpus_lines` | int | the pinned `:(glob)` command below | fallback-optional |
 
 **`issue` is `#N`-only.** The canonical progress template specifies
@@ -75,7 +75,8 @@ Stated per field, in words, because the unit is not inferable from the number:
   empty (no rows) or contains only already-resolved items" — so rows **carry
   forward**, and one finding is counted once per round that saw it. `findings` is
   a *review-effort* measure (how much finding-handling the loop did), explicitly
-  **not** a defect count. `objections` / `objections_reopened` count status
+  **not** a defect count — and it counts table **rows**, which on this loop is not
+  the same as findings: see (xi). `objections` / `objections_reopened` count status
   **cells**, not distinct findings: a finding objected in round 2 and re-objected
   in round 3 counts twice. That is deliberate — an objection is an *event*.
 - **`findings_first_seen` counts only rows absent from the immediately preceding round's table.**
@@ -135,12 +136,30 @@ Stated per field, in words, because the unit is not inferable from the number:
 
 **Two-source base rule.** The **script** uses the progress file's
 `**base_commit:**` header. The **fallback** uses `git merge-base master HEAD`,
-which needs no progress file. In the normal `/task` flow the two coincide — the
-branch is cut at Step 1 and the progress file created at Step 8 with no
-intervening commits. The script shares the fallback's last resort: when
+which needs no progress file. The script shares the fallback's last resort: when
 `**base_commit:**` is absent or unparseable it computes the trio off
 `git merge-base master HEAD` **and sets `incomplete: true`**, so the looser base is
 never passed off as the precise one.
+
+**The two bases do NOT coincide.** This page claimed they did — "the branch is cut
+at Step 1 and the progress file created at Step 8 with no intervening commits" —
+and the flow contradicts it by construction. `**base_commit:**` is the creator's
+`git rev-parse HEAD` at Step 8 (`ai-docs/templates/progress-format.md` § *Lifecycle
+by field*), and by Step 8 the branch already carries the whole planning phase:
+`/interview` commits the spec, its state file and the `INDEX.md` row, and
+`.claude/skills/task/SKILL.md` Step 6 orders the design committed "as soon as it
+lands, and after every design round". Measured on the run of 2026-09-18 (issue
+#10): 13 of that branch's 28 commits sat between the merge base and
+`**base_commit:**`; the trio recorded `24 / 401 / 38` where the whole branch at the
+same HEAD was `28 / 1116 / 39`.
+
+**Consequence for a consumer.** A script-path trio measures **implementation
+only** — Step 8 onward. A fallback-path trio measures the **whole branch**,
+planning included. The two are not comparable, and no field names the base, so
+`incomplete` is the only discriminator: `false` → implementation-only,
+`true` → whole-branch **and** something else degraded. Read it before comparing
+two rows' `insertions`. Adding a `base` field was considered and left out of v1
+for the same reason the rest of § *What this log does NOT measure* adds none.
 
 **Parse by keyword, never positionally.** Five shapes, all verified on
 purpose-built commits:
@@ -212,7 +231,7 @@ load-bearing:
 
 ```bash
 git ls-files -z -- 'AGENTS.md' 'CLAUDE.md' ':(glob).claude/**/*.md' ':(glob)ai-docs/*.md' \
-  ':(exclude)ai-docs/learnings.md' \
+  ':(exclude)ai-docs/learnings.md' ':(exclude)ai-docs/harness-gaps.md' \
   | xargs -0 cat | wc -l
 ```
 
@@ -226,19 +245,25 @@ as the rule, rather than as current derived membership, has restated the defect 
 criterion exists to avoid — a copy of membership whose owner is another document.
 
 **Derived membership — a measurement with a date. Re-derive it at each pinning;
-never transcribe it forward.** Measured after the last edit
-of the commit that pins it (the figures this paragraph carried before were
-the source harness's, transcribed with the import — the copy this rule forbids): the
-counted set is 9,368 lines post-exclusion, so the 1 % threshold is 93.68 lines.
-Files inside the counted set that satisfy the criterion: `ai-docs/harness-gaps.md`
-(93 — journaling, the second learning log), `ai-docs/context-status.md` (45 — the
-per-task implementation log) and `ai-docs/panic-index.md` (9 — volume set by the
-codebase; every production panic must add a row). None has crossed the threshold,
-so the `:(exclude)` term above still carries only `ai-docs/learnings.md` — 76 lines
-today, below the threshold, but a file that satisfies the criterion is never
-restored (crossings are one-way, below) and the term is what the script embeds.
-`harness-gaps.md` is within one line of the threshold: its next entry crosses it,
-and the pinning after that excludes it.
+never transcribe it forward.** Measured after the last edit of the commit that
+pins it. **The figures this paragraph carried until 2026-09-19 were never
+re-derived here.** They were the source harness's, transcribed with the import —
+the copy this rule forbids — and they stood through the log's first record: 9,368
+lines post-exclusion, a 93.68-line threshold, `harness-gaps.md` at 93,
+`context-status.md` at 45, `panic-index.md` at 9 and `learnings.md` at 76.
+Measured at `bd2a33d`, the only commit that had ever touched this page, this
+repository's own numbers were 9,874 and 21 / 7 / 13 / 5. Re-derived at the commit
+that pins this paragraph: the counted set is 10,082 lines post-exclusion, so the
+1 % threshold is 100.82 lines. **`ai-docs/harness-gaps.md` crossed it in the
+commit that pins this paragraph** — 116 lines, journaling, the second learning
+log — so the `:(exclude)` terms above now carry it beside `ai-docs/learnings.md`
+(59 lines). The crossing is acted on rather than noted, which is what
+"mechanical, not advisory" below means. Counted-set files that still satisfy the
+criterion and have not crossed: `ai-docs/context-status.md` (36 — the
+per-task implementation log) and `ai-docs/panic-index.md` (13 — volume set by
+the codebase; every production panic must add a row). **A crossing is no longer
+something a reader has to notice:** § *Step-12 verification block* runs a probe
+over those two names on every run and marks one.
 
 **Re-check threshold — 1% of the counted corpus**, the denominator being the
 post-exclusion total this command itself produces at that commit, so the guard and
@@ -266,6 +291,16 @@ commit the first corpus line was appended at, if a fixed reference point is
 needed. Any pre-exclusion figure is **not comparable** with a post-exclusion
 one — the two count different sets — so a series starts from the
 post-exclusion baseline and never splices the older basis onto it.
+
+**The basis changed once, on 2026-09-19, and the split is named here because
+nothing in a record shows it.** `ai-docs/harness-gaps.md` crossed 1 % and was
+excluded, so every row appended from that commit onward counts a different set
+from the rows before it. There is exactly one earlier row — the 2026-09-18 run,
+`instruction_corpus_lines: 9957`, reproducible at `43ef5e9` with the one-exclusion
+form — and it is **not comparable** with any later row on this field. The series
+restarts at the first row written under the two-exclusion form. Doing this while
+the corpus held one row is the whole reason it was done now: the rule's cost rises
+with every record, and a basis break is cheapest at the beginning.
 
 **Why the obvious pathspec is wrong.** Git's default wildmatch lets `*` cross
 `/`, so a plain `'ai-docs/*.md'` reaches below depth 1 into `ai-docs/plans/`,
@@ -296,7 +331,9 @@ therefore nobody's problem — and decays into skimmed boilerplate, whereas an
 undecided question stays a live agenda item. Entries (i)–(viii) are
 *coverage gaps*: axes the record cannot see. Entry (ix) is different in kind —
 a field the log *does* measure and **reports inverted**. Entry (x) is different
-again, and upstream of both. **No fields are added for any of this**:
+again, and upstream of both. Entry (xi) is a coverage gap of a sharper kind: the
+axis IS in the progress file, in a section the parser is deliberately bounded
+away from. **No fields are added for any of this**:
 `spec_amended_during_impl`, `subtasks_reopened`, and any handoff-compliance flag
 are out of scope for v1, and this section is prose by design.
 
@@ -448,6 +485,26 @@ figure. They live in the source spec's § *Key decisions* with their reproducing
 command.) **Undecided**: does this log need a read trigger, a consumer, or an
 escalation threshold of its own?
 
+### Measured, then parsed away
+
+**(xi)** *Should the findings the severity floor diverts be counted?* `findings`
+is parsed only between a `## Self-Review (Round N)` heading and the next `## `
+heading (§ *Section bounding*), and the loop's own template routes sub-floor
+findings **out of that section**: `ai-docs/templates/progress-format.md`
+§ *`## Review register` semantics* defines `accepted@<round> — <reason>` as "the
+durable form of *Recorded, not raised*", and a reviewer that opens no
+`blocker` / `major` row leaves the table empty. Both rules are deliberate; nothing
+joins them. Measured on the run of 2026-09-18 (issue #10): round 1 raised,
+verified and dispositioned **ten** findings, each with its own verifying command
+in `## Review register`, and the record reads
+`findings: {blocker:0, major:0, minor:0, nit:0}`. **The standing consequence, which
+every consumer of this file must carry: `findings` all-zero does not mean the round
+found nothing — it means the round opened no table row, and a run that handled ten
+sub-floor findings is byte-identical to one that handled none.** This is sharper
+than (ix): there a thorough review reads *worse* than a perfunctory one, here it
+reads *the same*. **Undecided**: parse the register, lower what the floor diverts,
+or keep the field as a count of table rows and say so in its name?
+
 ## Test-case registry
 
 **Environmental precondition:** the suite must run **on a branch**, not on a detached `HEAD`. The writer records `git branch --show-current`, and a detached checkout makes the branch unobtainable — the writer then correctly sets `incomplete: true`, which cases 1 and 20 assert against. CI checks out the branch explicitly for this reason (`.github/workflows/ci.yml`, Harness-guards job).
@@ -480,6 +537,7 @@ The registry lives on this page rather than in a plan document because a plan is
 | 18 | F9 exits 0 | Fixture 9 |
 | 19 | F10 exits 0 | Fixture 10 — severity bucketing under escaped pipes |
 | 20 | F11 exits 0 | Fixture 11 — escaped backslash does not merge columns |
+| 21 | F12 exits 0 | Fixture 12 — a bullet naming two paths yields two, a backticked word in the description yields none, a path two bullets name yields one |
 
 
 ## Hosted blocks for `/task` Step 12 sub-step 5a
@@ -506,16 +564,52 @@ Non-empty output → `git add` those paths (they enter the same commit at sub-st
 *tracked* corpus file already carries its worktree edits, so after this assertion
 the measured set equals the committed set.
 
+### Precondition assertion — the `## Files touched` section
+
+`files_touched` is the only field derived from prose a delegate wrote, so it is
+the only field that can be wrong while every gate is green. Sub-step 5a's
+**second action**, after the corpus assertion and before the script:
+
+```bash
+base=$(sed -nE 's/^\*\*base_commit:\*\* *([0-9a-f]{7,40}).*/\1/p' \
+  ai-docs/plans/<spec-base>.progress.md | head -n 1)
+diff <(git diff --name-only "$base"..HEAD | sort -u) \
+     <(awk '/^## Files touched[[:space:]]*$/ {f=1; next} f && /^## / {exit} f' \
+         ai-docs/plans/<spec-base>.progress.md \
+       | sed -nE 's/^-[[:space:]]+(`[^`]+`([[:space:]]*,[[:space:]]*`[^`]+`)*).*$/\1/p' \
+       | grep -oE '`[^`]+`' | tr -d '`' | sort -u)
+```
+
+Non-empty output → the section and the diff disagree. A `<` line is a file the
+run changed and the section does not name; a `>` line is a path the section names
+that this window did not change. Fix the **section**, re-run until the diff is
+empty, and only then invoke the script. The second command is the extractor's
+own pipeline, character-for-character, so the comparison is against what the
+record will actually hold rather than against a second reading of the same prose.
+
+**Fail direction: loud and cheap, and deliberately not a gate.** This assertion
+has no script and blocks nothing — a run whose author skips it still appends. What
+it removes is the case where nobody could have known: the 2026-09-18 run's record
+named 16 of the 24 files in its own window, the reviewer raised the shortfall as a
+`nit` and the register accepted it as "bookkeeping only", because nothing on that
+page said `## Files touched` is a telemetry source. It is; the bullets are the
+field.
+
+**Do not `git add` your way out of a `>` line.** A path the section names and the
+diff does not is a claim about work that is not in this window — the fix is to
+strike the bullet or to commit the work, never to widen the window.
+
 ### Step-12 verification block
 
-Run immediately after the append returns, before sub-step 7 stages. Record both
-results in the PR body under **Test plan**, PASS/FAIL with observed values:
+Run immediately after the append returns, before sub-step 7 stages. Record all
+three results in the PR body under **Test plan**, PASS/FAIL with observed values
+(the third is a reading, not a pass/fail — record its lines verbatim):
 
 ```bash
 tail -c1 ai-docs/metrics/task-runs.jsonl | xxd -p                      # -> 0a
 tail -1  ai-docs/metrics/task-runs.jsonl | jq -r '.instruction_corpus_lines'
 git ls-files -z -- 'AGENTS.md' 'CLAUDE.md' ':(glob).claude/**/*.md' ':(glob)ai-docs/*.md' \
-  ':(exclude)ai-docs/learnings.md' \
+  ':(exclude)ai-docs/learnings.md' ':(exclude)ai-docs/harness-gaps.md' \
   | xargs -0 cat | wc -l                                               # -> must equal the above
 ```
 
@@ -528,6 +622,37 @@ A mismatch on the second pair is a **stop-and-diagnose**, not a
 re-measure-and-record: it means a corpus-set file changed between the script's
 measurement and this check, which is exactly what the precondition assertion and
 the sub-step ordering exist to prevent.
+
+**Third: the crossing probe.** § *Derived membership* makes exclusion
+**mechanical** — a file that satisfies the criterion and crosses 1 % **is**
+excluded at the next pinning — and gave that rule no detector, so the crossing
+could only be noticed by someone re-reading the paragraph. Run this with the two
+above and record its output:
+
+```bash
+total=$(git ls-files -z -- 'AGENTS.md' 'CLAUDE.md' ':(glob).claude/**/*.md' ':(glob)ai-docs/*.md' \
+  ':(exclude)ai-docs/learnings.md' ':(exclude)ai-docs/harness-gaps.md' | xargs -0 cat | wc -l)
+for f in ai-docs/context-status.md ai-docs/panic-index.md; do
+  n=$(wc -l < "$f")
+  awk -v f="$f" -v n="$n" -v t="$total" 'BEGIN {
+    printf "%s  %d lines  %.2f%% of %d%s\n", f, n, n*100/t, t, (n*100 >= t ? "   <-- CROSSED" : "") }'
+done
+```
+
+The names are § *Derived membership*'s list of counted-set files that satisfy
+the criterion, and nothing else — one list, two sites on one page; a pinning that
+changes membership changes both. An excluded file leaves the list: it is no
+longer in the counted set, and crossings are one-way, so re-measuring it would
+only invite putting it back. The
+arithmetic is `awk`'s, not the shell's, and the total comes from `cat` rather than
+`wc -l` per file, so neither a locale's word for "total" nor an `xargs` split can
+reach the comparison.
+
+**Fail direction: reports, never blocks.** A `CROSSED` line does not stop Step 12
+and does not change this run's record — exclusion happens at the **next pinning**
+of the command, in the commit that re-pins it, and crossings are one-way. What the
+probe removes is the state this page was in until 2026-09-19: a mechanical rule
+with nothing that fires.
 
 ### Fallback recipe
 

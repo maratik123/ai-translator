@@ -428,13 +428,13 @@ assert_jq "case 1: spec_base from basename"    "$l1" '.spec_base == "f1"'
 assert_jq "case 1: schema_version == 1"        "$l1" '.schema_version == 1'
 assert_jq "case 1: corpus lines is an int > 0" "$l1" '.instruction_corpus_lines | type == "number" and . > 0'
 
-# The corpus count must come from the PINNED command INCLUDING its exclusion of
-# the append-only corrections log. A script carrying the pre-exclusion form
+# The corpus count must come from the PINNED command INCLUDING both of its
+# exclusions — the two journals. A script carrying any narrower form
 # writes every record on a superseded, non-comparable basis — and the value is
 # plausible either way, so nothing but this equality catches it. Derived live
 # rather than hardcoded: the count is environment-dependent by construction.
 corpus_excl=$(git ls-files -z -- 'AGENTS.md' 'CLAUDE.md' ':(glob).claude/**/*.md' ':(glob)ai-docs/*.md' \
-  ':(exclude)ai-docs/learnings.md' | xargs -0 cat | wc -l | tr -d ' ')
+  ':(exclude)ai-docs/learnings.md' ':(exclude)ai-docs/harness-gaps.md' | xargs -0 cat | wc -l | tr -d ' ')
 corpus_broad=$(git ls-files -z -- 'AGENTS.md' 'CLAUDE.md' ':(glob).claude/**/*.md' ':(glob)ai-docs/*.md' \
   | xargs -0 cat | wc -l | tr -d ' ')
 # Mutation guard for the assertion below: if the two forms ever agree, the
@@ -836,6 +836,49 @@ assert_jq "case 20: both rows bucket normally"                            "$l20"
   '.findings == {"blocker":0,"major":1,"minor":1,"nit":0}'
 assert_jq "case 20: no degradation from either escape form"               "$l20" \
   '.incomplete == false'
+
+# --- Case 21: multi-path bullets, prose backticks, repeated path --------------
+# Three shapes the real corpus writes and a first-token-only read got wrong:
+#   * a bullet naming two paths — every source file the 2026-09-18 workspace
+#     run created rode on one, and all four were dropped from the record;
+#   * a backticked word inside a bullet's description, which is prose and must
+#     NOT become a path;
+#   * the same file named by two bullets, one edit per section — one file, so
+#     one entry, or `files_touched | length` cannot be read against
+#     `files_changed`.
+# Order is order of FIRST appearance, not sorted: the section is a narrative and
+# re-sorting it would lose which change came first.
+f12="$tmp/f12.progress.md"
+cat > "$f12" <<EOF
+# Progress: fixture — ACTIVE
+
+**Branch:** feat/fixture
+**base_commit:** ${real_base}
+**Issue:** #42
+
+## Files touched
+
+- \`Cargo.toml\` (new — virtual workspace manifest)
+- \`crates/shared/Cargo.toml\`, \`crates/shared/src/lib.rs\` (new)
+- \`Makefile\` (guard deleted, the \`cargo\` recipes bared)
+- \`ai-docs/x.md\` (§ CI only)
+- \`ai-docs/x.md\` (§ Dependabot — a second, separate edit)
+
+## Self-Review (Round 1)
+
+**Verdict:** APPROVE
+EOF
+
+t21="$tmp/out21.jsonl"
+bash "$script" "$f12" "$t21" >/dev/null 2>&1
+assert_exit "case 21: F12 exits 0" "$?" 0
+l21=$(tail -1 "$t21" 2>/dev/null)
+assert_jq "case 21: both paths of a two-path bullet are harvested" "$l21" \
+  '.files_touched == ["Cargo.toml","crates/shared/Cargo.toml","crates/shared/src/lib.rs","Makefile","ai-docs/x.md"]'
+assert_jq "case 21: a backticked word in the description is not a path" "$l21" \
+  '(.files_touched | index("cargo")) == null'
+assert_jq "case 21: a path named twice appears once"                   "$l21" \
+  '([.files_touched[] | select(. == "ai-docs/x.md")] | length) == 1'
 
 # --- Case 13: no tracked-file mutation ----------------------------------------
 # True by construction under the sandbox strategy; this case is what proves the

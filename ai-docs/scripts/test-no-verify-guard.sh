@@ -12,8 +12,8 @@
 # guard that matched only the long spelling would be the same gate with a
 # one-character hole.
 #
-# TWO FALSE POSITIVES, BOTH DELIBERATE, both fixtures below so a later "fix"
-# that opens the hole fails here instead of in production:
+# THREE FALSE POSITIVES, ALL DELIBERATE, all three fixtures below so a later
+# "fix" that opens the hole fails here instead of in production:
 #   * `git push -n` is --dry-run, not --no-verify. It is blocked, because this
 #     hook matches COMMAND TEXT and cannot know which subcommand a short flag
 #     belongs to. A dry run executes nothing, so the cost is a loud refusal on
@@ -21,6 +21,15 @@
 #   * a commit MESSAGE containing a lone `-n` token is blocked. Cost: reword
 #     the message. The alternative is a silently bypassed ratchet, and this
 #     project already has one recorded agent dodging a textual gate.
+#   * a LATER command on the same line carrying `-n` is blocked: the matcher
+#     scans from `git commit`/`git push` to the next `;`, so `&&` and `|` do
+#     not stop it. Observed on the workspace-skeletons task run of 2026-09-18 —
+#     a commit-push line ending in `grep -n` was refused. Narrowing the scan to stop at `&&`
+#     or `|` is the obvious fix and is REFUSED here: it would let a `|` inside
+#     a commit message carry `--no-verify` past the hook. Cost of keeping it:
+#     split the line into two Bash calls. Cost of narrowing it: a bypassed
+#     ratchet nobody sees. The block message now states this, so the agent
+#     that meets it does not have to re-derive it.
 #
 # Anti-drift: runs the LIVE hook body, extracted with jq.
 # Verdict convention: the body exits 2 to block a tool call.
@@ -77,9 +86,10 @@ BLOCK	git commit -n -m "wip"
 BLOCK	git commit -nm "wip"
 BLOCK	git push --no-verify
 BLOCK	cd /home/dev/ai-translator && git commit --no-verify -m "x"
-# --- must block: the two accepted false positives (see the header) ---
+# --- must block: the three accepted false positives (see the header) ---
 BLOCK	git push -n
 BLOCK	git commit -m "docs: explain the -n flag"
+BLOCK	git commit -q -m "chore(plans): progress" && git push -q && echo pushed && grep -n '^ok' ai-docs/plans/x.progress.md
 # --- must allow: ordinary commits and pushes ---
 ALLOW	git commit -m "feat(scheduler): add Reconcile"
 ALLOW	git commit -q -m "chore(plans): retire the run's state files"

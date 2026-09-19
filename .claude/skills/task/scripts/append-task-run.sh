@@ -282,25 +282,39 @@ if [ -r "$pf" ]; then
 
   files_touched_json=null
   if grep -qE '^## Files touched[[:space:]]*$' "$pf"; then
-    # The canonical line shape is ``- `path` — what changed``; path only, the
-    # description is dropped.
+    # The canonical line shape is ``- `path` — what changed``, and a bullet MAY
+    # name several paths as a leading comma-separated chain of backticked
+    # tokens, which is how a manifest and the source file that ships with it get
+    # one bullet between them. The real corpus writes both shapes, and a
+    # first-token-only read dropped every second path silently — four source
+    # files of one run, measured 2026-09-19. Only the LEADING chain is
+    # harvested: a backticked word inside the description is prose, not a path,
+    # so the match stops at the first token outside the chain.
+    # The value is the SET of paths named by the section, in order of first
+    # appearance: one file edited twice in different sections is one file, and
+    # a repeated entry made `files_touched | length` unreadable against
+    # `files_changed`.
     # shellcheck disable=SC2016  # the backticks are markdown delimiters inside a
     # sed regex, not command substitution — single quotes are what keeps them so
     files_touched_json=$(
       awk '/^## Files touched[[:space:]]*$/ {f = 1; next} f && /^## / {exit} f' "$pf" \
-        | sed -nE 's/^-[[:space:]]+`([^`]+)`.*$/\1/p' \
-        | jq -Rsc 'split("\n") | map(select(length > 0))'
+        | sed -nE 's/^-[[:space:]]+(`[^`]+`([[:space:]]*,[[:space:]]*`[^`]+`)*).*$/\1/p' \
+        | grep -oE '`[^`]+`' \
+        | tr -d '`' \
+        | jq -Rsc 'split("\n") | map(select(length > 0))
+                   | reduce .[] as $p ([]; if index($p) then . else . + [$p] end)'
     )
   else
     degrade
   fi
 
-  # The pinned corpus command, :(exclude) term INCLUDED. A pre-exclusion form
-  # would put every record on a superseded, non-comparable basis. A real corpus
+  # The pinned corpus command, BOTH :(exclude) terms INCLUDED — the two
+  # append-only journals. A form missing either would put every record on a
+  # superseded, non-comparable basis. A real corpus
   # is never 0 lines, so 0 means the command could not reach it (not a git work
   # tree, or run outside the repo) -> omit the field and flag the record.
   corpus=$(git ls-files -z -- 'AGENTS.md' 'CLAUDE.md' ':(glob).claude/**/*.md' ':(glob)ai-docs/*.md' \
-    ':(exclude)ai-docs/learnings.md' 2>/dev/null \
+    ':(exclude)ai-docs/learnings.md' ':(exclude)ai-docs/harness-gaps.md' 2>/dev/null \
     | xargs -0 cat 2>/dev/null | wc -l | tr -d ' ')
   corpus_json=null
   case "$corpus" in
