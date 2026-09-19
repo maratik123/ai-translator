@@ -1,0 +1,46 @@
+# Interview state — storage schema second migration
+
+Handoff between rounds, and the re-entry point for every later return to `spec-writer`. Kept on `ready`.
+
+```yaml
+schema_version: 1
+spec_path: ai-docs/plans/2026-09-19-storage-schema-second-migration.spec.md
+issue_ref: "#11"
+gh_issue:
+  title: "Схема хранилища: вторая миграция"
+  state: open
+  labels: ["storage"]
+  body: |
+    ## Объём
+    **Миграция 2** создаёт схему целиком, ровно как она описана в доке: `books`, `chapters`, `paragraphs`, `translations`, `context_snapshots`, `paragraph_embeddings`, `paragraph_annotations`, `positions`, `settings`.
+
+    Расширение `vector` здесь уже стоит: его ставит миграция 1 вместе с тестовой обвязкой (#13).
+
+    Отдельные требования:
+    - `translations` с первичным ключом `(paragraph_id, cache_key, context_version)`; `context_version` — атрибут строки, **не** часть `cache_key`.
+    - Индексы: `paragraphs(chapter_id, idx)`, `translations(paragraph_id)`, `context_snapshots(book_id, upto_paragraph_id)`.
+    - `paragraph_embeddings.embedding` типа `vector(1024)`. HNSW-индекс пока не добавляем: на одну книгу (≤ 10k строк) он не нужен, и это записано в доке.
+
+    ## DoD
+    - Миграция накатывается на базу, которую обвязка #13 создаёт **на каждый тест внутри контейнера**, и проверяется против настоящего Postgres, а не мока: `CHECK`, уникальные индексы и поведение векторного столбца это поведение БД, и мок о нём ничего не скажет.
+    - **Ни один тест не приводит в «чистое» состояние уже существующую базу.** Чистота берётся из того, что база только что создана и умрёт вместе с контейнером, а не из того, что её кто-то очистил. Тест, который дропает или пересоздаёт базу по `DATABASE_URL`, сносит рабочие данные владельца: `DATABASE_URL` — подключение приложения, а не набора тестов (`AGENTS.md` § Build & Test).
+    - Хостовая БД `reader` **вне тестового контура**: миграции на неё накатывает владелец вручную через `reader-migrate`.
+    - Таблицы `paragraph_embeddings` и `paragraph_annotations` создаются, хотя наполняются позже: схема — это forward-migration, а не редактирование.
+
+    ## Источник
+    `docs/03-storage.md` §§ Схема, Индексы.
+
+    ## Осторожно
+    Схема — данные, которые переживают развёртывание. Переименование столбца или перенумерация enum позже будут миграцией, а не правкой (`ai-docs/domain-invariants.md` INV-14).
+
+
+  comments: []
+  linked_issues: ["#13"]
+  issue_body_status: current
+  linked_prs: []
+round_cap: 4
+questions_per_round_cap: 3
+round: 1
+agent_id: null
+prior_qa: []
+```
