@@ -1,5 +1,5 @@
 # Progress: Postgres test harness and the vector-extension migration — ACTIVE
-_Updated: 2026-09-19 11:58_
+_Updated: 2026-09-19 12:01_
 
 > Read THIS FIRST → ready to continue. No need to re-read the codebase.
 
@@ -8,13 +8,13 @@ _Updated: 2026-09-19 11:58_
 **Last build:** PASS
 **Issue:** #13
 **Spec:** ai-docs/plans/2026-09-19-postgres-test-harness-migration.spec.md
-**current_step:** Step 8 — subtask 4 of 5 complete
-**last_passed_gate:** cargo clippy --workspace --all-targets + citation guard + link check | 2026-09-19T11:58:35Z | 89b5773
+**current_step:** Step 8 — subtask 5 of 5 complete; Group B done, all five subtasks committed
+**last_passed_gate:** make verify (full) | 2026-09-19T12:01:11Z | 6fb4505
 **entry_args:** 13
 
 ## Next action
 
-**Do this immediately:** subtask 5 — amend the corpus test row and tick the two rows this task closes in full (Group B, in progress).
+**Do this immediately:** push the branch (Step 8 visibility rule — no pull request exists yet), then Step 9 Verify.
 
 ## Subtasks
 
@@ -22,7 +22,7 @@ _Updated: 2026-09-19 11:58_
 - [x] 2. Container harness and the database-backed test target — `crates/core/Cargo.toml`, `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs` — commit df64b2a
 - [x] 3. Correct the statements this diff falsifies (D12) — `AGENTS.md`, `.githooks/coverage-ratchet.sh`, `Makefile`, `ai-docs/code-style.md` — commit 27ba952
 - [x] 4. Record the harness decision where it will be looked for — `ai-docs/key-decisions.md` (KD-20) — commit 89b5773
-- [ ] 5. Amend the corpus row and tick what this task closes in full (D13)  ← CURRENT (Group B)
+- [x] 5. Amend the corpus row and tick what this task closes in full (D13) — `docs/03-storage.md` — commit 6fb4505
 
 Groups per the design's `## Handoff plan`: **Group A** = 1–2 (code, `code-writer`, sonnet/medium pinned in frontmatter); **Group B** = 3–5 (instructions/harness, `general-purpose`, inherit).
 
@@ -65,7 +65,9 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - **Step 8 (subtask 3)**: D12's site list was re-measured rather than taken on the design's word, each sweep with a constructed control line — `carry no test` returns `AGENTS.md:187` and `.githooks/coverage-ratchet.sh:25`, `crates it holds` returns `Makefile:31` and `ai-docs/code-style.md:90`, and no other live site in either case. A wider sweep for `skeleton` over the same corpus adds only `ai-docs/context-status.md:9,13,33`, which is the per-task history log writing in the past tense about the previous task; it is a history surface and was left untouched. The four rewritten sentences replace the *reason* only: the tolerance constant, the two band constants and every conditional branch of the ratchet script are byte-identical, and the three gate-script sentences D12 excludes — including the ratchet's own no-executable-lines branch comment, which shares the file — were not touched.
 - **Step 8 (subtask 3)**: the comment-reference gate was seen RED in both gated files before the commit, not merely green afterwards. A markdown path planted inside the build entry point's file-size comment gave `Makefile:29: markdown-path: ai-docs/code-style.md`, exit 2; one planted in the ratchet script's tolerance header gave `.githooks/coverage-ratchet.sh:23: markdown-path: (AGENTS.md`, exit 2. Each was reverted from a `tmp/` copy, the executable bit re-checked on the script, and the gate then reported `no comment in the gated set points outward` against the committed tree. That the gate reaches both files by its own language map is therefore observed rather than assumed.
 - **Step 8 (subtask 4)**: the design's stated consequence was executed against the shipped code before it was copied onto the key-decisions page, rather than transcribed. A trial body appended to the test target and left out of `main`'s trial vector made `cargo clippy --workspace --all-targets -- -D warnings` exit non-zero with `error: function unregistered_trial_probe is never used`, and the target failed to compile; the probe was reverted from a `tmp/` copy, `git diff --name-only` came back empty, and the same command then exited 0 with zero error and warning lines. So "an unregistered trial is a denied lint rather than a silent pass" is an observation in both directions, not an inference from `harness = false`.
-- **Step 8 (subtask 4)**: the row's *source* field is backticked prose naming the design at its post-retirement path, per the design's own instruction, and that is not a broken link waiting to happen. CI's markdown link check parses the `[text](target)` form only, so a backticked path is outside what it resolves — the same program run locally over every tracked markdown file exited 0 — while a real markdown link to a `done/` path that does not exist yet would have failed it. The citation guard passed on the same tree.
+- **Step 8 (subtask 4)**: the row's *source* field is backticked prose naming the design at its post-retirement path, per the design's own instruction, and that is not a broken link waiting to happen. CI's markdown link check parses the bracket-then-parenthesis inline-link form only, so a backticked path is outside what it resolves — the same program run locally over every tracked markdown file exited 0 — while a real markdown link to a `done/` path that does not exist yet would have failed it. The citation guard passed on the same tree. **That link check then found a real defect of its own:** a decisions-log line written two lines above quoted the inline-link form literally, and the checker's regex reaches inside backticks, so it reported `progress.md -> target` and exited 1. The line was reworded and the checker exited 0 — one RED on a genuine defect and one GREEN, both observed on the same instrument.
+- **Step 8 (subtask 5)**: the corpus row's five clauses were changed exactly as D13's table prescribes and no further. Unchanged: the image, the socket and the version parenthetical, byte-identical in the diff. Replaced, each with its one-clause reason in the same sentence: `OnceCell` (a value in a static is never dropped), ryuk (the crate ships none), `#[sqlx::test]` (it takes its connection only from the variable the suite may not read). Kept as properties: one container per test binary, and a database per test with the migrations applied. The two rows this task closes in full are ticked, and nothing else moved — every other checkbox of the storage page is still `[ ]`, and the build-and-deploy page is not in the diff at all, so the Podman-socket row D10 declines is untouched and unticked. The edit leaves no relative link, which the markdown link checker confirms by resolving every one in the tree.
+- **Step 8 (Group B close)**: `make verify` exited 0 at `6fb4505` with every sub-target executed — format, build, clippy, doc, test, lockfile, file limits, actionlint, shellcheck, comment references, the panic gate and the dependency-direction gate — no error and no warning line, `test result: ok` on all seven binaries, 1 unit test and 5 database trials. The coverage ratchet did not run and could not have: Group B staged no `.rs`, `.sql`, manifest or lockfile, which is the hook's silent-skip condition, and the recorded high-water mark is therefore unchanged by this group.
 
 ## GO notes
 
@@ -118,3 +120,4 @@ Append-only, one line per non-trivial decision. Each line is prefixed with the s
 - `Makefile` — the file-size bands' justification; both band constants unchanged
 - `ai-docs/code-style.md` — the same justification, in the twin sentence the bands' table carries
 - `ai-docs/key-decisions.md` — KD-20 appended to § Repository and process; no existing row edited, KD-16 left as it stands
+- `docs/03-storage.md` — the test row amended to the harness that exists, and it plus the vector-extension row ticked; every other row of the page untouched
