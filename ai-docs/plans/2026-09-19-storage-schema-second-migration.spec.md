@@ -32,9 +32,10 @@ accepts and what it refuses is what this task has to settle now.
 ## Key decisions
 | Question | Decision |
 |---|---|
-| How much integrity does the schema enforce beyond the columns, keys and types the storage document sketches? | TBD — asked in round 1 |
-| What becomes of a book's chapters, paragraphs, translations, snapshots, embeddings, annotations and reading position when the book row is deleted? | TBD — asked in round 1 |
-| Do the categorical columns — a paragraph's kind, a book's format, its source and target languages — refuse a value outside the set the project supports? | TBD — asked in round 1 |
+| How much integrity does the schema enforce beyond the columns, keys and types the storage document sketches? | TBD — re-asked in round 2, with what the tightening buys and what it costs |
+| What becomes of a book's chapters, paragraphs, translations, snapshots, embeddings, annotations and reading position when the book row is deleted? | Nothing goes with it. The database refuses the deletion while anything still references the book, and a caller that wants the book gone removes its content itself. [answer 1.2: "Запрет"] |
+| Do the categorical columns — a paragraph's kind, a book's format, its source and target languages — refuse a value outside the set the project supports? | No. They hold free text, the supported set lives in the code, and narrowing the columns later is a migration rather than an edit. [answer 1.3: "Свободный текст"] |
+| Does a work with no chapter division still reach its paragraphs through a chapter row? | TBD — asked in round 2 |
 
 ## Acceptance Criteria
 | # | Criterion |
@@ -48,8 +49,9 @@ accepts and what it refuses is what this task has to settle now.
 | AC7 | The paragraph-embedding and paragraph-annotation tables exist once the migration has been applied, with no row written to either. [task: "Таблицы `paragraph_embeddings` и `paragraph_annotations` создаются, хотя наполняются позже"] |
 | AC8 | The refusals only a database can show — the constraints the schema carries, the duplicate a unique index forbids, a vector of the wrong dimension — are observed on a Postgres database created for the run, not on a substitute for one. [task: "проверяется против настоящего Postgres, а не мока: `CHECK`, уникальные индексы и поведение векторного столбца это поведение БД, и мок о нём ничего не скажет"] |
 | AC9 | TBD — what the schema refuses beyond the document's sketch; awaiting the integrity answer. |
-| AC10 | TBD — what a book row's deletion does to the book's content; awaiting the deletion answer. |
-| AC11 | TBD — whether a categorical column refuses an unsupported value; awaiting that answer. |
+| AC10 | Deleting a book row is refused while a chapter, paragraph, translation, context snapshot, embedding, annotation or reading position still references it, and no such row disappears as a side effect of a deletion anywhere in the schema. [answer 1.2: "Запрет"] |
+| AC11 | A paragraph kind, a book format, and a source or target language outside the set the project supports are stored as given: none of those four columns is restricted to a fixed set of values. [answer 1.3: "Свободный текст"] |
+| AC12 | TBD — how a work with no chapter division reaches its paragraphs; awaiting that answer. |
 
 ## Open questions
 None beyond the three this round asks.
