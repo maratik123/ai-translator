@@ -288,9 +288,16 @@ existing target, and `make_trial` moves into the support module.** Two constrain
 placement. A `.rs` file placed directly under `tests/` is discovered as a test target of its own —
 **even though this manifest already declares one explicitly**, which is the half that is easy to get
 wrong from memory — and a second target with its own `main` would start a second container for the
-same run, while a file inside a subdirectory of `tests/` is no target, which the existing support
-module demonstrates at this commit (§ *What the tree holds today*)
-`[measured cargo@1.98.1 · an isolated package under tmp/, outside this workspace by its own empty [workspace] table and compiled by no member of it, declaring one explicit [[test]] with harness = false and holding tests/declared.rs, tests/extra_probe.rs and tests/sub/mod.rs; cargo metadata --no-deps --format-version 1 --manifest-path <that manifest> → "lib probe_pkg", "test declared …/tests/declared.rs" and "test extra_probe …/tests/extra_probe.rs", and no target at all for tests/sub/mod.rs although find lists the file]`. The second constraint is the file bands, which
+same run, while a file inside a subdirectory of `tests/` **that is not named `main.rs`** is no
+target, which the existing support module demonstrates at this commit (§ *What the tree holds
+today*). The qualifier is load-bearing and is stated because the probe measured both halves: a
+subdirectory's `mod.rs` produced no target, and a subdirectory's `main.rs` produced one named after
+the directory
+`[measured cargo@1.98.1 · an isolated package under tmp/, outside this workspace by its own empty [workspace] table and compiled by no member of it, declaring one explicit [[test]] with harness = false and holding tests/declared.rs, tests/extra_probe.rs, tests/sub/mod.rs and tests/subdir/main.rs; cargo metadata --no-deps --format-version 1 --manifest-path <that manifest> → "lib probe_pkg", "test declared …/tests/declared.rs", "test extra_probe …/tests/extra_probe.rs" and "test subdir …/tests/subdir/main.rs", with no target at all for tests/sub/mod.rs although find lists the file]`.
+**So the file names this design fixes are part of the decision, not decoration:** `mod.rs`,
+`shape.rs` and `behaviour.rs` under `crates/core/tests/schema/`, and never a `main.rs` there — a file
+by that name in that directory would silently become a second test binary, and therefore a second
+container. The second constraint is the file bands, which
 count a file whole: the trial set is split by what the trials interrogate so that neither file
 carries all of it — `shape.rs` reads the catalogue, `behaviour.rs` drives the database
 `[derived → the file-size gate on each of the group's commits]`.
@@ -328,8 +335,8 @@ rather than from `information_schema`, because the latter reports a vector colum
 type and loses the dimension entirely
 `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres over a table with an embedding column → information_schema.columns gave "embedding | USER-DEFINED | vector", while "SELECT format_type(a.atttypid, a.atttypmod) FROM pg_attribute a …" gave "embedding | vector(1024)"]`.
 **The expected set is written in the formatter's spellings, not in the schema table's DDL
-spellings**, and the two differ for three of the types this migration writes — so the expected table
-is not copied from § *The shape this design chooses* unchanged. Measured over a table carrying every
+spellings**, and they differ for the types enumerated below — so the expected table is not copied
+from § *The shape this design chooses* unchanged. Measured over a table carrying every
 DDL spelling this schema uses: `bigserial` comes back as `bigint` **plus** a `nextval('<table>_<column>_seq'::regclass)`
 default expression (the sequence is the whole of what `bigserial` means to the catalogue), `int`
 comes back as `integer`, and `timestamptz` as `timestamp with time zone`, while `text`, `bytea`,
@@ -342,6 +349,33 @@ so no model or sampling parameters need pinning. **What a diff in this golden me
 this design disagree. If the migration has never been applied outside a throwaway test database, the
 repair is the migration; if it has been applied anywhere real, the repair is a new forward migration
 and never an edit to `0002` (**D1**).
+
+**The primary keys are a second case table beside the column golden, and they need one: the tuple
+above carries no key at all.** A column comparison sees a table's columns, their types, their
+nullability and their defaults, and is blind to whether the table has a key — and only some of this
+schema's keys are caught indirectly elsewhere (a `REFERENCES … (id)` needs a unique on its target,
+and the embedding table's key falls out of the exact access-method set **D8** specifies). The keys
+the corpus fixes for `context_snapshots`, `paragraph_annotations`, `positions` and `settings` are
+caught by nothing else, so the expected set is stated: for each table this migration creates, its
+**ordered** primary-key column list, read from the catalogue
+`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres against the schema § The shape this design chooses fixes, "SELECT c.relname, (SELECT array_agg(att.attname ORDER BY k.ord) FROM unnest(i.indkey) WITH ORDINALITY AS k(attnum, ord) JOIN pg_attribute att ON att.attrelid = i.indrelid AND att.attnum = k.attnum) FROM pg_index i JOIN pg_class c ON c.oid = i.indrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE i.indisprimary AND n.nspname = 'public'" restricted to this migration's tables → "books | {id}", "chapters | {id}", "paragraphs | {id}", "translations | {paragraph_id,cache_key,context_version}", "context_snapshots | {book_id,version}", "paragraph_embeddings | {paragraph_id}", "paragraph_annotations | {paragraph_id,context_version}", "positions | {book_id}", "settings | {key}"]`.
+
+Two properties of that assertion are decided here rather than left to the implementor, because
+getting either wrong makes it green for a schema with no keys at all:
+
+- **Its domain is the explicit list of this migration's tables — not the golden's "public schema less
+  the bookkeeping table".** Over the bare schema the same query answers `_sqlx_migrations | {version}`
+  as well
+  `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · the same query without the table-name restriction → the rows above plus "_sqlx_migrations | {version}"]`,
+  and pinning that row would couple this schema's test to sqlx's own table across an upgrade, which is
+  the coupling D10 exists to avoid. The golden needs its wider domain because catching an unexpected
+  extra *table* is its job; the key assertion does not, because that job is already done.
+- **The comparison is a set equality in both directions, because a table whose key is dropped
+  vanishes from the answer rather than returning an empty key list.** Measured: after dropping one
+  table's primary key the query returns **no row at all** for it
+  `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres, "ALTER TABLE settings DROP CONSTRAINT settings_pkey" then the same query filtered to that table → "(0 rows)", and a count over pg_index for it → "settings_pk_rows | 0"]`.
+  An assertion written as "every row that came back matches what was expected" is therefore green on
+  exactly the schema this case exists to catch.
 
 **D11 — The embedded set gains a unit assertion for the new migration, and that assertion is also
 what forces the macro to re-expand.** The migrator macro emits an `include_str!` per migration it
@@ -416,7 +450,7 @@ migrations, the engine's schema check, and the repositories
 | # | Task | Files | Depends on |
 |---|------|-------|------------|
 | 1 | **The migration, and the embedded-set assertion that proves the build saw it.** Write `crates/core/migrations/0002_storage_schema.sql` creating the tables in dependency order (books, chapters, paragraphs, translations, context snapshots, embeddings, annotations, positions, settings) with the columns, types, nullability, primary keys and `ON DELETE RESTRICT` references § *The shape this design chooses* fixes, then the indexes that section's second table names, with those exact index names. No `CHECK`, no `DEFAULT` beyond the `bigserial` sequences, no transaction opt-out line, and no comment carrying an outward reference (**D1**, **D2**, **D3**, **D5**, **D7**, **D8**). Add the case to the `#[cfg(test)]` module beside the migrator asserting that the embedded set carries version 2 described `storage schema`, which is also the edit that makes the macro re-expand over the new file (**D11**); leave the existing lowest-version case untouched. | `crates/core/migrations/0002_storage_schema.sql`, `crates/core/src/lib.rs` | — |
-| 2 | **The schema trials.** Move the trial-wrapping helper from the test target into the support module and have the target use it from there (**D9**). Add `crates/core/tests/schema/` — `mod.rs` with the fixtures and the function that builds this module's trials, `shape.rs` with the catalogue trials and `behaviour.rs` with the database-driving trials § Test Design names — and register them from the existing target's `main`. Perform the red observations § Test Design requires before the group's last commit, each with its output recorded in the progress file and its mutation reverted, confirming the revert with `git diff --name-only`. | `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs`, `crates/core/tests/schema/mod.rs`, `crates/core/tests/schema/shape.rs`, `crates/core/tests/schema/behaviour.rs` | 1 |
+| 2 | **The schema trials.** Move the trial-wrapping helper from the test target into the support module and have the target use it from there (**D9**). Add `crates/core/tests/schema/` under exactly these file names — `mod.rs` with the fixtures and the function that builds this module's trials, `shape.rs` with the catalogue trials and `behaviour.rs` with the database-driving trials § Test Design names — and register them from the existing target's `main`. **No file under that directory is named `main.rs`:** cargo discovers `tests/<dir>/main.rs` as a test target of its own, which would be a second binary and therefore a second container (**D9**). Perform the red observations § Test Design requires before the group's last commit, each with its output recorded in the progress file and its mutation reverted, confirming the revert with `git diff --name-only`. | `crates/core/tests/support/mod.rs`, `crates/core/tests/database.rs`, `crates/core/tests/schema/mod.rs`, `crates/core/tests/schema/shape.rs`, `crates/core/tests/schema/behaviour.rs` | 1 |
 | 3 | **Record the schema's integrity posture where the next task will look for it.** Add a key-decision row in the page's own shape — decision, why, consequence, source — numbered after the last row the page carries, stating that the schema enforces structure and nothing about content: required values and positional uniqueness, no check constraint, no default beyond the identifier sequences, every reference refusing a delete rather than cascading it, and the categorical columns holding free text with the supported set living in the code. The *consequence* field carries what a repository author inherits: the caller writes every timestamp, a delete of a book is refused until its content is removed by the caller, the refusal arrives as the restrict SQLSTATE rather than the foreign-key one, and the embedding dimension is schema rather than configuration. The *source* field is backticked prose naming this design at the path it carries after Step 12 — `ai-docs/plans/done/2026-09-19-storage-schema-second-migration.design.md` § D2–D4 and § D7 — because the pre-retirement path is stale before the pull request opens. | `ai-docs/key-decisions.md` | 2 |
 
 ## Handoff plan
@@ -522,6 +556,15 @@ existing harness, so no trial cleans anything and no trial sees another's rows.
   right-looking name and a wrong column. The exclusion is a single named table and never a prefix or
   a pattern: a pattern would also swallow a table this migration wrongly created under a similar
   name, which is the direction the golden exists to catch `[derived → AC1]`.
+- **`every_table_carries_the_key_the_corpus_fixes`** — the second case table **D10** specifies: for
+  each table this migration creates, its ordered primary-key column list, compared against the
+  catalogue as a set in **both** directions. Both properties D10 fixes are what make it work — the
+  domain is the explicit list of this migration's own tables, so the migrator's bookkeeping table's
+  key is never pinned; and the comparison fails on a *missing* row, because a table whose key was
+  dropped leaves the query's answer entirely rather than coming back with an empty list. This is the
+  trial that would notice `context_snapshots`, `paragraph_annotations`, `positions` or `settings`
+  losing the key the corpus gives it — the column golden is blind to keys, and no other trial reaches
+  those four `[derived → AC1]`.
 - **`the_named_lookups_have_an_index_of_their_own`** — for each lookup AC4 names,
   assert that an index exists whose access method is btree and whose **ordered** key-column list is
   the expected one; the order matters, because an index over the same columns in the other order
@@ -631,6 +674,12 @@ recorded one `[derived → the per-trial database the harness creates]`.
 - **The golden fails in both directions.** Add a column to one table in the migration and confirm the
   shape trial fails naming it; then remove a column and confirm it fails again. A set comparison
   written in one direction only is the shape this rules out `[derived → AC1]`.
+- **The key assertion sees a missing key.** Drop one primary key from the migration — `settings` or
+  `positions`, a table no reference and no index assertion reaches — and confirm
+  `every_table_carries_the_key_the_corpus_fixes` fails naming the table that went missing from the
+  answer; then revert. This observation is what separates a set comparison from a row-by-row one: the
+  dropped key produces **no row**, so a comparison written the easy way is green here, and this is
+  the only bullet that would catch that `[derived → AC1]`.
 - **The index assertion sees a wrong column order.** Reverse the key columns of the reading-order
   index and confirm the trial fails naming the key list it found. There is no second half to this
   observation any more: D5 leaves AC4 on the catalogue assertion alone, precisely so that the red
