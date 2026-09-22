@@ -8,13 +8,13 @@ _Updated: 2026-09-22 09:13_
 **Last build:** PASS
 **Issue:** #11
 **Spec:** ai-docs/plans/2026-09-19-storage-schema-second-migration.spec.md
-**current_step:** Step 8 — subtask 3 of 3 complete (Group B done; all subtasks complete)
-**last_passed_gate:** make verify — fmt-check, build, clippy, doc-check, test (25: 2 lib unit + 23 database trials), lock-check, file-limits, actionlint, shellcheck, comment-refs, panic-calls, import-guard | 2026-09-22T09:13Z | 18a2311
+**current_step:** Step 9 — Verify (ALL PASS)
+**last_passed_gate:** make verify + make cover-ratchet | 2026-09-22T09:22:25Z | fcb62cd
 **entry_args:** 11
 
 ## Next action
 
-**Do this immediately:** Step 8 is complete — both groups have returned and the tree is committed. Push the branch (Step 8 visibility rule) and proceed to Step 9 — Verify.
+**Do this immediately:** Step 9.5 — append this run's entry to `ai-docs/context-status.md` with the literal `#TBD-at-Step-12` locator, then Step 10.
 
 ## Subtasks
 
@@ -49,6 +49,12 @@ _Updated: 2026-09-22 09:13_
   **Propagation check (AGENTS.md § *Propagation Rule*, steps 1 and 5):** swept `.claude/ AGENTS.md ai-docs/ README.md docs/` for `structural integrity|integrity posture|структурн` and for `on delete restrict|23001|cascad`, excluding this task's own plan files — both empty, with the instrument confirmed live by a control (`pgvector` over the same corpus → 42 hits) and by two constructed strings it was seen to match. Re-swept after the edit for `on delete restrict|judges no content|free text|check constraint|23001`: the only match carrying this claim is the new row itself. No other live document states the schema's integrity posture, so nothing else needed changing. `AGENTS.md` § *Принятые решения с обоснованием в доках* is a curated subset, not a mirror — `KD-16` through `KD-20` have no bullet there either — so no bullet was added, and the subtask's file list is one file.
 
   **Gates:** `make verify` green in full (`tmp/gate-subtask3.log`; `test result: ok` on every target, 2 lib unit cases and 23 database trials, no `error`/`warning` line). The CI markdown-link check was run locally over all 110 tracked `*.md` — exit 0; the new row adds no markdown link, and the checker was confirmed to include `ai-docs/key-decisions.md` and to resolve its two existing links. The citation guard (`.claude/skills/ai-audit/scripts/check-citations.sh`) exits 0 with `PASS: every citation resolves for its reader.` The pre-commit ratchet is skipped for this commit by design — no `.rs`, `.sql`, manifest or lockfile is staged.
+
+- **Step 9**: every gate of `make verify` green (fmt-check, build, clippy, doc-check, test, lock-check, file-limits, actionlint, shellcheck, comment-refs, panic-calls, import-guard); the target's composition was read from the Makefile rather than assumed.
+- **Step 9**: the per-AC sweep was run twice over independent instruments — every trial named and seen `... ok` in the orchestrator's own run, and the migration source checked directly for the tables, the four indexes, the embedding dimension, the absent HNSW index, the seven `ON DELETE RESTRICT` references, the absent `CHECK`, the translations key and the chapter reference. Each negative pattern was first matched against a constructed control.
+- **Step 9**: no panic-index row added — both `.expect` calls in `crates/core/src/lib.rs` sit inside its `#[cfg(test)]` module, which the index puts out of scope by position.
+- **Step 9**: domain-invariant sweep clean — no distance threshold and no compiled-in tuning value in the changed sources; `context_version` is a column of the translations row and enters the table's key only so that versions of one cache key coexist.
+- **Step 9**: the coverage ratchet blocked at `recorded 90.91 / measured 90.909090…` — the recorded mark was a round-up of the measurement that produced it, the open harness-gaps defect. Recorded value lowered to `90.90` in its own doc-only commit, so the hook's raise branch stayed skipped; the script itself was not touched.
 
 ## GO notes
 
