@@ -290,7 +290,7 @@ placement. A `.rs` file placed directly under `tests/` is discovered as a test t
 wrong from memory — and a second target with its own `main` would start a second container for the
 same run, while a file inside a subdirectory of `tests/` is no target, which the existing support
 module demonstrates at this commit (§ *What the tree holds today*)
-`[measured cargo@1.98.1 · an empty crates/core/tests/zz_autodiscovery_probe.rs was written, cargo metadata --no-deps --format-version 1 read (it compiles nothing) and the file removed in the same command, with git status --porcelain afterwards showing only this design file → the target list gained "test zz_autodiscovery_probe …/crates/core/tests/zz_autodiscovery_probe.rs" beside the declared "test database", while no target ever appears for the support module inside the subdirectory]`. The second constraint is the file bands, which
+`[measured cargo@1.98.1 · an isolated package under tmp/, outside this workspace by its own empty [workspace] table and compiled by no member of it, declaring one explicit [[test]] with harness = false and holding tests/declared.rs, tests/extra_probe.rs and tests/sub/mod.rs; cargo metadata --no-deps --format-version 1 --manifest-path <that manifest> → "lib probe_pkg", "test declared …/tests/declared.rs" and "test extra_probe …/tests/extra_probe.rs", and no target at all for tests/sub/mod.rs although find lists the file]`. The second constraint is the file bands, which
 count a file whole: the trial set is split by what the trials interrogate so that neither file
 carries all of it — `shape.rs` reads the catalogue, `behaviour.rs` drives the database
 `[derived → the file-size gate on each of the group's commits]`.
@@ -327,6 +327,15 @@ The formatted type is read with the catalogue's type formatter
 rather than from `information_schema`, because the latter reports a vector column as a user-defined
 type and loses the dimension entirely
 `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres over a table with an embedding column → information_schema.columns gave "embedding | USER-DEFINED | vector", while "SELECT format_type(a.atttypid, a.atttypmod) FROM pg_attribute a …" gave "embedding | vector(1024)"]`.
+**The expected set is written in the formatter's spellings, not in the schema table's DDL
+spellings**, and the two differ for three of the types this migration writes — so the expected table
+is not copied from § *The shape this design chooses* unchanged. Measured over a table carrying every
+DDL spelling this schema uses: `bigserial` comes back as `bigint` **plus** a `nextval('<table>_<column>_seq'::regclass)`
+default expression (the sequence is the whole of what `bigserial` means to the catalogue), `int`
+comes back as `integer`, and `timestamptz` as `timestamp with time zone`, while `text`, `bytea`,
+`jsonb`, `boolean`, `bigint` and `vector(1024)` come back unchanged
+`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres over a table declaring a bigserial, text, int, timestamptz, bytea, jsonb, boolean, bigint and vector(1024) column, "SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull, pg_get_expr(d.adbin, d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d …" → "a | bigint | t | nextval('spellings_a_seq'::regclass)", "b | text", "c | integer", "d | timestamp with time zone", "e | bytea", "f | jsonb", "g | boolean", "h | bigint", "i | vector(1024)"]`.
+
 Column *order* is deliberately outside the comparison (the set is sorted before it is compared),
 because a column's ordinal position carries nothing any caller reads. Nothing here is model-produced,
 so no model or sampling parameters need pinning. **What a diff in this golden means:** the schema and
@@ -591,10 +600,22 @@ existing harness, so no trial cleans anything and no trial sees another's rows.
   columns AC12 names — a paragraph kind, a book format, a source language and a target language — each written
   with a value the project does not support and read back unchanged `[derived → AC12]`.
 - **`deleting_a_book_is_refused_while_anything_references_it`** — a whole book is built with a row in
-  every referencing table; the delete is refused with the restrict SQLSTATE; every row is then counted
-  and found still present, which is the half that says nothing disappeared; and the deletion succeeds
-  once the caller has removed the content itself, in dependency order. A case table drives the first
-  half so the failure message names *which* referencing row held the book `[derived → AC11]`.
+  every table AC11 enumerates: a chapter, a paragraph under it, a translation, a context snapshot, an
+  embedding, an annotation and a reading position. The delete is refused with the restrict SQLSTATE;
+  every row is then counted and found still present, which is the half that says nothing disappeared;
+  and the deletion succeeds once the caller has removed the content itself, in dependency order —
+  annotation and embedding, then translation, then paragraph, then chapter, then snapshot and
+  position, then the book.
+
+  **The case table enumerates the references that actually point at `books`** —
+  `chapters.book_id`, `context_snapshots.book_id` and `positions.book_id` — each set up as the
+  *sole* remaining reference so the failure message names which one held the book. The other rows AC11
+  names reach the book **transitively, through the chapter's own reference**: a paragraph belongs to a
+  chapter and never to a book (AC13), and a translation, an embedding and an annotation hang off the
+  paragraph, so none of them can be isolated as a direct case and none needs to be. That transitivity
+  is also what makes the dependency-ordered removal above meaningful rather than ceremonial: the
+  chapter cannot go until its paragraph has, which is the chain the refusal is protecting
+  `[derived → AC11]`.
 - **`a_work_with_no_divisions_is_stored_as_one_untitled_chapter`** — a book with a single chapter
   carrying no title holds its paragraphs, and the paragraphs are reachable from the book through that
   chapter; and a paragraph attached to no chapter is refused `[derived → AC13]`.
@@ -622,6 +643,16 @@ recorded one `[derived → the per-trial database the harness creates]`.
   migration and confirm the trial fails `[derived → AC7]`.
 - **The delete rule assertion can see a cascade.** Change one reference to cascade on delete and
   confirm both the schema-wide rule trial and the book-deletion trial fail `[derived → AC11]`.
+- **The absent-check assertion can see a check constraint.** Add a `CHECK` to one column in the
+  migration — a non-empty text, say, which is exactly the content judgement AC10 forbids — and confirm
+  `the_schema_carries_no_check_constraint` fails naming the constraint it found; then revert. This is
+  the observation the trial most needs and the one it is easiest to leave out, because its query is
+  scoped twice over and **both scopings return the clean answer for every possible schema when they
+  are wrong**: a filter on the wrong constraint kind misses the check rows (PostgreSQL 18 fills that
+  catalogue with `NOT NULL` rows of kind `'n'`, so a green result proves nothing until a real check
+  row has been seen to turn it red), and a query aimed at the wrong namespace finds nothing anywhere.
+  The mutation is therefore paired: the red above, and the unmutated schema's green beside it, which
+  together are what make the silence evidence `[derived → AC10 and AC12]`.
 - **The required-value assertion can see an optional column.** Drop one `NOT NULL` from the migration
   and confirm the corresponding case fails — and that the content-blindness trial stays green, which
   is what separates the two rules `[derived → AC9 and AC10]`.
