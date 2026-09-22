@@ -8,13 +8,13 @@ _Updated: 2026-09-22 09:13_
 **Last build:** PASS
 **Issue:** #11
 **Spec:** ai-docs/plans/2026-09-19-storage-schema-second-migration.spec.md
-**current_step:** Step 9.5 — docs updated
+**current_step:** Step 10 — self-review APPROVE (Round 1)
 **last_passed_gate:** make verify + make cover-ratchet | 2026-09-22T09:22:25Z | fcb62cd
 **entry_args:** 11
 
 ## Next action
 
-**Do this immediately:** Step 10 — spawn `self-review` over the base..HEAD range with the five permitted lines only.
+**Do this immediately:** Step 12 — finalise INDEX.md, move spec and design to `done/`, append the inbox rows and the telemetry record, commit, push, retire the state files, open the pull request.
 
 ## Subtasks
 
@@ -59,6 +59,8 @@ _Updated: 2026-09-22 09:13_
 - **Step 9.5**: no open question in `ai-docs/context.md` was resolved — its Status section carries no per-issue progress by design, and its cache-key invariant bullet already describes what this migration stores.
 - **Step 9.5**: no corpus checkbox ticked; the storage page's task rows name the sqlx setup, the migrate binary, the schema check on open, the repositories and the local role, none of which this task delivers. Verified by reading the rows, not by the design's claim about them.
 
+- **Step 10**: self-review returned APPROVE on round 1; no blocker or major row was opened, and the four sub-floor rows stand `accepted@1`.
+
 ## GO notes
 
 | # | round | note | kind | route | resolution |
@@ -101,6 +103,10 @@ _Updated: 2026-09-22 09:13_
 
 | id | raised | severity | status | verifying command |
 |----|--------|----------|--------|-------------------|
+| R1-1 | round 1 | nit | accepted@1 — the untitled-chapter trial verifies reachability one hop (paragraph to chapter), not two; below severity floor | `cargo test -p reader-core --test database -- a_work_with_no_divisions_is_stored_as_one_untitled_chapter` |
+| R1-2 | round 1 | minor | accepted@1 — the review window given is the merge-base, a strict superset of the recorded base_commit; reviewed over the wider window, no doc defect | `git diff --stat 24f8896..HEAD` |
+| R1-3 | round 1 | minor | accepted@1 — AC9's no-cache-key case is satisfied by the key's implicit requirement rather than the explicit one; already under Key discoveries and routed around in red observation 10 | `cargo test -p reader-core --test database -- a_row_missing_a_required_value_is_refused` |
+| R1-4 | round 1 | nit | accepted@1 — the design names one trial per criterion instead of a literal verification command per criterion; every named trial was run against the shipped tree | `cargo test --workspace` |
 
 ## Files touched
 
@@ -114,4 +120,113 @@ _Updated: 2026-09-22 09:13_
 - `ai-docs/key-decisions.md` (subtask 3 — `KD-21` appended)
 - `ai-docs/coverage-ratchet.txt` (Step 9 — recorded mark lowered to the round-down of the measurement)
 - `ai-docs/context-status.md` (Step 9.5 — this run's entry, PR locator still the placeholder)
+- `ai-docs/plans/2026-09-19-storage-schema-second-migration.progress.md` (this file — the run's own record, written at every step boundary)
 
+## Self-Review (Round 1)
+
+**Verdict:** APPROVE
+
+| # | File:line | Severity | Finding | Status |
+|---|-----------|----------|---------|--------|
+
+No `blocker` and no `major` row is open. Below the severity floor: **2 nits and 2 minors**, all
+entered in the register as `accepted@1` — `crates/core/tests/schema/behaviour.rs`,
+`crates/core/tests/schema/mod.rs`, this progress file's header, and the design document's
+Test Design section.
+
+### What was checked
+
+**Spawn contract.** The prompt carried exactly the permitted lines — the invocation line, `Spec:`,
+`Design:`, `Progress:` and one commit range. No contamination, so no `PROMPT-CONTAMINATION` row.
+
+**Window.** `24f8896..HEAD` resolves to the merge-base with `master`; 14 files, 2636 insertions,
+15 commits. Non-empty, and a strict superset of the recorded `base_commit` 1492d7b.
+
+**Gates re-run against the shipped tree, each exit read apart from its output:** `cargo fmt --all
+--check` 0 · `cargo clippy --workspace --all-targets -- -D warnings` 0 · `make doc-check` 0 ·
+`cargo test --workspace` 0 (25 cases: 2 lib unit, 23 database trials) · `make lock-check` 0 ·
+`make file-limits` 0 · `make comment-refs` 0 · `make panic-calls` 0 · `make import-guard` 0 ·
+`make cover-ratchet` 0 (`90.91% >= 90.90%`).
+
+**Criteria.** Each criterion's named trial was selected by filter and seen to pass; a bogus filter
+was run first and reported `0 passed … 23 filtered out`, so the filter is an instrument that can
+report nothing. AC1 `schema_matches_the_recorded_shape` ·
+`every_table_carries_the_key_the_corpus_fixes` · `embedded_set_carries_the_storage_schema_migration`;
+AC2–AC3 the three translation trials; AC4 `the_named_lookups_have_an_index_of_their_own`;
+AC5 the dimension pair; AC6 `no_index_over_the_embedding_column_is_hnsw`;
+AC7 `the_tables_later_tasks_fill_are_created_and_empty`; AC8
+`a_position_is_taken_once_within_its_parent`; AC9 `a_row_missing_a_required_value_is_refused`;
+AC10 `the_database_judges_presence_not_content` and `the_schema_carries_no_check_constraint`;
+AC11 `deleting_a_book_is_refused_while_anything_references_it` and
+`every_reference_refuses_a_delete`; AC12 `a_value_outside_the_supported_set_is_stored_as_given`;
+AC13 `a_work_with_no_divisions_is_stored_as_one_untitled_chapter`.
+
+**The suite was seen RED, five times, independently of the recorded observations.** Each mutation
+was applied to the migration, the mutated line printed, the trial run, and the file restored from a
+copy under `tmp/`; `git diff --name-only` on the migration came back empty after every restore, and
+`git status --short` is clean now.
+
+1. A `CHECK` on a text column → `the_schema_carries_no_check_constraint` FAILED:
+   `the public schema carries check constraint(s): ["paragraphs_text_check", "translations_text_check"]`.
+2. An index with the vector access method over the embedding column →
+   `no_index_over_the_embedding_column_is_hnsw` FAILED: `missing: [], extra: ["hnsw"]`.
+3. One reference flipped to cascade → `every_reference_refuses_a_delete` FAILED:
+   `reference(s) not carrying the restrict delete rule: [("chapters_book_id_fkey", "c")]`, and
+   `deleting_a_book_is_refused_while_anything_references_it` FAILED:
+   `chapter as the sole reference: expected SQLSTATE 23001, the statement succeeded`.
+4. One primary key dropped → `every_table_carries_the_key_the_corpus_fixes` FAILED:
+   `missing: [("settings", ["key"])], extra: []` — the set comparison does catch the row that
+   vanishes rather than emptying.
+5. The chapter positional-uniqueness index dropped — the one uniqueness object no catalogue
+   assertion names → `a_position_is_taken_once_within_its_parent` FAILED:
+   `second chapter, same book, same position: expected SQLSTATE 23505, the statement succeeded`.
+
+**Corpus conformance.** The migration was read against the storage corpus's schema section at its
+pinned commit, table by table and column by column: all nine tables, every column name and type,
+the translation key over paragraph, cache key and context version, and the two reference-shaped
+columns the corpus leaves unmarked left unmarked. Seven references, each spelling the restrict
+delete rule. No transaction opt-out line, no default beyond the three identifier sequences, no
+check constraint — the last two machine-checked by the golden's default-expression column and by
+the check-constraint trial.
+
+**Design conformance.** The nullable set is exactly the four columns the design's D2 encloses, and
+the golden pins the required flag of every column, so the set is machine-checked rather than read.
+The index set, its names and its key-column order match the design's table. No file under
+`crates/core/tests/schema/` is named `main.rs`, so the target count is unchanged. The embedded-set
+assertion names version 2 and leaves the existing lowest-version case untouched.
+
+**GO notes.** All six rows are `design-internal` / `folded` and resolve to commit 1492d7b. That
+commit's own diff was read rather than its row believed: it adds the primary-key case table to
+D10 and to Test Design, adds the missing-key red observation, narrows the target-discovery claim
+to what was measured, and drops the numeral — and it is the parent of the first implementation
+commit, so the round trip closed before the code started. D5's refusal of a plan assertion is
+unchanged, as its row claims.
+
+**Safety and style.** No panicking call added to shipped code (`make panic-calls` green; the two
+`.expect` calls sit inside the test module beside the migrator, which the gate scopes out), so the
+panic index needed no row. No `let _ = <Result>` and no `#[allow(...)]` anywhere under
+`crates/core/` — both greps run with a control string that matched first. No secret, no tuning
+value in source: the embedding dimension is a persisted schema width, not configuration.
+
+**Domain invariants.** The context version is a column of the translation row and the key's third
+component, never folded into the cache key — asserted in both directions by the coexistence trial
+and by the pre-check trial. No distance threshold, no request parameter, no eval figure, no
+non-deterministic read on a pure path. The schema is the first forward migration of these tables,
+so nothing is renamed or repurposed.
+
+**The coverage-ratchet lowering was verified rather than accepted.** The script writes the
+measurement rounded half-up and compares it at full precision, so a recorded mark can sit strictly
+above the measurement that produced it; the harness-gaps entry of 2026-09-19 carries the diagnosis
+and is still open with no closing pull request. Lowering the recorded mark is the documented
+workaround and the script is untouched; the drop is argued in its own commit message, and
+`make cover-ratchet` now passes.
+
+**Propagation.** The sweep behind the new key-decision row was re-run, not trusted: the pattern
+matched the migration and the new row itself (control), the inputs are non-empty (14 files under
+the corpus directory, a 39-line readme), and the sweep over those live documents is clean. No other
+live document states the schema's integrity posture.
+
+**Progress-file fields.** `Branch`, `base_commit`, `Last build`, `current_step`, `last_passed_gate`,
+`entry_args` and the decisions log are all present. `parent_skill` is correctly absent — the
+canonical template makes it conditional on a nested skill writing into the parent's file, which is
+not this run.
