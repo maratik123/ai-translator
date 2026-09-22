@@ -8,13 +8,13 @@ _Updated: 2026-09-22 09:13_
 **Last build:** PASS
 **Issue:** #11
 **Spec:** ai-docs/plans/2026-09-19-storage-schema-second-migration.spec.md
-**current_step:** Step 9 — Verify (ALL PASS)
+**current_step:** Step 9.5 — docs updated
 **last_passed_gate:** make verify + make cover-ratchet | 2026-09-22T09:22:25Z | fcb62cd
 **entry_args:** 11
 
 ## Next action
 
-**Do this immediately:** Step 9.5 — append this run's entry to `ai-docs/context-status.md` with the literal `#TBD-at-Step-12` locator, then Step 10.
+**Do this immediately:** Step 10 — spawn `self-review` over the base..HEAD range with the five permitted lines only.
 
 ## Subtasks
 
@@ -55,6 +55,9 @@ _Updated: 2026-09-22 09:13_
 - **Step 9**: no panic-index row added — both `.expect` calls in `crates/core/src/lib.rs` sit inside its `#[cfg(test)]` module, which the index puts out of scope by position.
 - **Step 9**: domain-invariant sweep clean — no distance threshold and no compiled-in tuning value in the changed sources; `context_version` is a column of the translations row and enters the table's key only so that versions of one cache key coexist.
 - **Step 9**: the coverage ratchet blocked at `recorded 90.91 / measured 90.909090…` — the recorded mark was a round-up of the measurement that produced it, the open harness-gaps defect. Recorded value lowered to `90.90` in its own doc-only commit, so the hook's raise branch stayed skipped; the script itself was not touched.
+
+- **Step 9.5**: no open question in `ai-docs/context.md` was resolved — its Status section carries no per-issue progress by design, and its cache-key invariant bullet already describes what this migration stores.
+- **Step 9.5**: no corpus checkbox ticked; the storage page's task rows name the sqlx setup, the migrate binary, the schema check on open, the repositories and the local role, none of which this task delivers. Verified by reading the rows, not by the design's claim about them.
 
 ## GO notes
 
@@ -109,4 +112,6 @@ _Updated: 2026-09-22 09:13_
 - `crates/core/tests/schema/shape.rs` (new, subtask 2)
 - `crates/core/tests/schema/behaviour.rs` (new, subtask 2)
 - `ai-docs/key-decisions.md` (subtask 3 — `KD-21` appended)
+- `ai-docs/coverage-ratchet.txt` (Step 9 — recorded mark lowered to the round-down of the measurement)
+- `ai-docs/context-status.md` (Step 9.5 — this run's entry, PR locator still the placeholder)
 
