@@ -1,5 +1,5 @@
 # Progress: Storage schema — the second migration — ACTIVE
-_Updated: 2026-09-22 08:41_
+_Updated: 2026-09-22 09:13_
 
 > Read THIS FIRST → ready to continue. No need to re-read the codebase.
 
@@ -8,19 +8,19 @@ _Updated: 2026-09-22 08:41_
 **Last build:** PASS
 **Issue:** #11
 **Spec:** ai-docs/plans/2026-09-19-storage-schema-second-migration.spec.md
-**current_step:** Step 8 — subtask 2 of 3 complete
-**last_passed_gate:** cargo test --workspace (23 schema/behaviour trials + 2 embedded-set unit cases) | 2026-09-22 | 1492d7b
+**current_step:** Step 8 — subtask 3 of 3 complete (Group B done; all subtasks complete)
+**last_passed_gate:** make verify — fmt-check, build, clippy, doc-check, test (25: 2 lib unit + 23 database trials), lock-check, file-limits, actionlint, shellcheck, comment-refs, panic-calls, import-guard | 2026-09-22T09:13Z | 18a2311
 **entry_args:** 11
 
 ## Next action
 
-**Do this immediately:** hand off Group A (subtasks 1 and 2) to `code-writer` through `/context-reset`, per the design's `## Handoff plan`.
+**Do this immediately:** Step 8 is complete — both groups have returned and the tree is committed. Push the branch (Step 8 visibility rule) and proceed to Step 9 — Verify.
 
 ## Subtasks
 
 - [x] 1. The migration `crates/core/migrations/0002_storage_schema.sql`, and the embedded-set assertion that proves the build saw it
 - [x] 2. The schema trials under `crates/core/tests/schema/`, with the red observations before the group's last commit
-- [ ] 3. The key-decision row recording the schema's integrity posture  ← CURRENT
+- [x] 3. The key-decision row recording the schema's integrity posture
 
 ## Decisions log
 
@@ -43,6 +43,12 @@ _Updated: 2026-09-22 08:41_
   11. *Embedded-set assertion sees a stale build* — `git mv` the migration to `0003_storage_schema.sql`; `embedded_set_carries_the_storage_schema_migration` failed (`left: 3, right: 2`). `git mv` back to `0002_storage_schema.sql`; `git status --short` confirmed no diff against the committed tree.
 
 - **Step 8, subtask 2, pre-commit ratchet block**: `git commit` was BLOCKED by `coverage-ratchet: recorded 90.91%, measured 90.91%`, despite subtask 2 adding no shipped `.rs` line (only `tests/**`). `cargo llvm-cov --workspace --summary-only --json` gave the exact figure `20/22 = 90.9090909090909...%`, identical to what subtask 1's commit measured; the recorded `90.91` is that same figure rounded **up** by the hook's write path, so the raw comparison `90.9090909090909 < 90.91` blocks every future commit touching a gated file even with coverage unchanged. This is the exact self-inconsistency `ai-docs/harness-gaps.md`'s 2026-09-19 entry "the coverage ratchet records a rounded-up value it then cannot satisfy, and locks itself" already diagnoses (open, no `Closed by:`); its proposed remedy is to round down or record full precision. Applied the round-down repair to the recorded value only (`90.91` → `90.90`, i.e. `int(90.9090909090909 * 100) / 100`), staged alongside this commit; `bash .githooks/coverage-ratchet.sh --check` then reports `90.91% >= 90.90% (a rise …)`. No hook script edit made — out of this subtask's scope; the existing harness-gaps entry already carries the diagnosis and remedy.
+
+- **Step 8, subtask 3**: added `KD-21 — The storage schema enforces structure and judges no content.` to `ai-docs/key-decisions.md`, appended after `KD-20` at the end of § *Repository and process* — the page numbers monotonically across its three sections, so "numbered after the last row the page carries" and the page's own ordering agree only at the end. The row keeps the page's shape (bold decision, why-prose, `*Consequence:*`, `*Source:*`) and carries all five posture clauses the design's subtask row names (required values and positional uniqueness, no `CHECK`, no `DEFAULT` beyond the identifier sequences, `ON DELETE RESTRICT` on every reference, categorical columns as free text with the supported set in the code) and all four inherited consequences (the caller writes every timestamp, a book delete is refused until the caller removes its content, the refusal is SQLSTATE `23001` rather than `23503`, the embedding dimension is schema rather than configuration). `*Source:*` is backticked prose naming the post-Step-12 path `ai-docs/plans/done/2026-09-19-storage-schema-second-migration.design.md` § D2–D4 and § D7 — verified against `.claude/skills/task/SKILL.md`, whose Step 12 `git mv`s the spec and design into `ai-docs/plans/done/`, and matching the form `KD-19` and `KD-20` already use. No `INV-` citation, because the page carries none (`grep -c "INV-" ai-docs/key-decisions.md` → `0`).
+
+  **Propagation check (AGENTS.md § *Propagation Rule*, steps 1 and 5):** swept `.claude/ AGENTS.md ai-docs/ README.md docs/` for `structural integrity|integrity posture|структурн` and for `on delete restrict|23001|cascad`, excluding this task's own plan files — both empty, with the instrument confirmed live by a control (`pgvector` over the same corpus → 42 hits) and by two constructed strings it was seen to match. Re-swept after the edit for `on delete restrict|judges no content|free text|check constraint|23001`: the only match carrying this claim is the new row itself. No other live document states the schema's integrity posture, so nothing else needed changing. `AGENTS.md` § *Принятые решения с обоснованием в доках* is a curated subset, not a mirror — `KD-16` through `KD-20` have no bullet there either — so no bullet was added, and the subtask's file list is one file.
+
+  **Gates:** `make verify` green in full (`tmp/gate-subtask3.log`; `test result: ok` on every target, 2 lib unit cases and 23 database trials, no `error`/`warning` line). The CI markdown-link check was run locally over all 110 tracked `*.md` — exit 0; the new row adds no markdown link, and the checker was confirmed to include `ai-docs/key-decisions.md` and to resolve its two existing links. The citation guard (`.claude/skills/ai-audit/scripts/check-citations.sh`) exits 0 with `PASS: every citation resolves for its reader.` The pre-commit ratchet is skipped for this commit by design — no `.rs`, `.sql`, manifest or lockfile is staged.
 
 ## GO notes
 
@@ -96,4 +102,5 @@ _Updated: 2026-09-22 08:41_
 - `crates/core/tests/schema/mod.rs` (new, subtask 2)
 - `crates/core/tests/schema/shape.rs` (new, subtask 2)
 - `crates/core/tests/schema/behaviour.rs` (new, subtask 2)
+- `ai-docs/key-decisions.md` (subtask 3 — `KD-21` appended)
 
