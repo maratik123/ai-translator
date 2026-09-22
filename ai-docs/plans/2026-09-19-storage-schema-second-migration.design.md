@@ -44,8 +44,10 @@ Three things the corpus does **not** state, and which are therefore this design'
 - **Index names, and the identity of the object that carries positional uniqueness** (**D5**).
 
 One more property is decided by the corpus by *omission* and is honoured as written: § Схема marks
-`FK` per column, and the two reference-shaped columns it leaves unmarked — `context_snapshots.upto_paragraph_id`
-and `positions.paragraph_id` — stay unmarked here (**D4**).
+`FK` per column, and the reference-shaped columns it leaves unmarked — `context_snapshots.upto_paragraph_id`
+and `positions.paragraph_id` — stay unmarked here (**D4**). The omission is read from the page rather
+than remembered
+`[measured 31bc466:docs/03-storage.md § Схема · sed -n '/^## Схема/,/^## Индексы/p' docs/03-storage.md | grep -n 'upto_paragraph_id\|positions(' → ':11: context_snapshots(book_id FK, version int, upto_paragraph_id bigint,' and ':18: positions(book_id PK FK, paragraph_id bigint, updated_at timestamptz)' — each carrying FK on its book column and nothing on the paragraph one]`.
 
 ### The shape this design chooses
 
@@ -158,9 +160,15 @@ Two consequences are spelled out because they are where this rule is most likely
 - **No `CHECK` anywhere, and no length or range constraint.** An empty paragraph text, an empty cache
   key and a negative position are all stored as given (AC10); the validator that refuses an empty
   translation is INV-8's work in code, not the database's.
-- **No `DEFAULT` anywhere**, beyond the sequence default that the corpus's own `bigserial` spelling
-  carries. The timestamps are written by the caller: a `now()` default would put a clock inside the
-  schema, where a repository's own tests could not pin it, and the corpus writes no default.
+- **No `DEFAULT` on any column this migration writes**, beyond the sequence default that the corpus's
+  own `bigserial` spelling carries. The timestamps are written by the caller: a `now()` default would
+  put a clock inside the schema, where a repository's own tests could not pin it, and the corpus
+  writes no default. **The rule is scoped to this migration's own tables on purpose**, because the
+  migrated database is not only this migration's: the migrator's bookkeeping table carries a `now()`
+  default of its own, and it is not this design's to have an opinion about (**D10**). Measured on the
+  schema this design writes, beside that table, the whole public schema's default expressions are the
+  identifier sequences and that one
+  `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres, a join of pg_class, pg_attribute and pg_attrdef over relkind 'r' in schema public → "_sqlx_migrations | installed_on | now()", "books | id | nextval('books_id_seq'::regclass)", "chapters | id | nextval('chapters_id_seq'::regclass)", "paragraphs | id | nextval('paragraphs_id_seq'::regclass)" and no other row]`.
 
 Two required columns are worth naming because they could be mistaken for optional ones.
 `paragraphs.html` is written for every block beside the plain text extracted from it
@@ -176,15 +184,27 @@ and AC10 makes the empty string a value the schema stores rather than an absence
 **D3 — Every reference spells `ON DELETE RESTRICT`; the update rule is left at the default.** The
 spec's key decision is refusal
 `[answer 1.2: "Запрет"]`,
-and refusal has two spellings that are not equivalent. Left at the default, a reference is `NO
-ACTION`, which is checked at the end of the statement and can be deferred: measured, a parent row was
-deleted and the transaction committed because the children were deleted later in the same
-transaction, while the same schema written with `RESTRICT` refused the parent delete on the spot
-`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, Debian build) · psql -U postgres over two table pairs, one referencing with the default rule and one with ON DELETE RESTRICT, both DEFERRABLE INITIALLY DEFERRED → the default pair committed "DELETE 1"/"DELETE 1" and left parents_left = 0, while the RESTRICT pair answered "ERROR: 23001: update or delete on table \"parent_r\" violates RESTRICT setting of foreign key constraint \"child_r_parent_id_fkey\"" and left parents_left = 1]`.
-AC11 says the deletion is refused *while* anything still references the book, so the immediate form
-is the one that states it. **The refusal's SQLSTATE is `23001`, not `23503`** — a test written
-against the foreign-key-violation code would be green for the wrong schema, which is why § Test
-Design names the code.
+and refusal has two spellings. **They do not differ in whether the delete is refused, and this design
+does not pretend they do:** measured on a plain, non-deferrable pair, the default rule — `NO ACTION` —
+refuses the delete at once and leaves the parent standing, exactly as the restrict rule does
+`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6) · psql -U postgres with \set VERBOSITY verbose over a pair whose reference carries no delete rule and no deferral, "DELETE FROM p_d WHERE id = 1" → "ERROR: 23503: update or delete on table \"p_d\" violates foreign key constraint \"c_d_parent_id_fkey\" on table \"c_d\"", and the following count reported parents_left = 1]`.
+What the explicit spelling buys is two things, and both are worth the words:
+
+- **The refusal has an identity of its own.** Against this design's own schema, the same delete
+  answers `23001` — the restrict-violation code — rather than the generic foreign-key-violation code
+  `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres with \set VERBOSITY verbose against the schema § The shape this design chooses fixes, "DELETE FROM books WHERE id = 1" with a chapter present → "ERROR: 23001: update or delete on table \"books\" violates RESTRICT setting of foreign key constraint \"chapters_book_id_fkey\" on table \"chapters\"", and the following count reported books_left = 1]`.
+  A test written against `23503` would be green for a schema that never chose a rule at all, which is
+  why § Test Design names `23001` for this case and `23503` for the neighbouring one.
+- **The rule survives a later `DEFERRABLE`.** The two spellings *do* diverge once a reference is made
+  deferrable — the default rule then lets a parent delete commit if the children go in the same
+  transaction, while restrict still refuses on the spot. **No reference this design writes is
+  deferrable**, so that measurement describes a shape this task does not create; it is named here
+  only because it is the reason the intent is written into the schema rather than left to a default
+  that a later migration could quietly widen
+  `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6) · psql -U postgres over two pairs, both DEFERRABLE INITIALLY DEFERRED, one with the default rule and one with ON DELETE RESTRICT → the default pair committed "DELETE 1"/"DELETE 1" and reported parents_left = 0, while the restrict pair answered "ERROR: 23001: … violates RESTRICT setting of foreign key constraint" and reported parents_left = 1]`.
+
+AC11 says the deletion is refused *while* anything still references the book, and either spelling
+delivers that; this one says so in the schema and reports it distinguishably.
 
 No reference carries a cascading or nulling rule, and the catalogue records the rule per reference as
 `confdeltype`, which is what makes AC11's second half checkable schema-wide rather than table by
@@ -204,23 +224,46 @@ later is a forward migration, and it is the direction that stays open: the data 
 which it will as long as nothing writes a pointer to a paragraph that does not exist.
 
 **D5 — Positional uniqueness is carried by a unique index, and that same object is AC4's reading-order
-index.** A unique btree index over `(chapter_id, idx)` refuses the second paragraph at a taken
-position *and* serves "the paragraphs of a chapter in reading order" — measured, the planner reads
-that index in order and adds no sort step
-`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6) · psql -U postgres, "SET enable_seqscan = off; EXPLAIN (COSTS OFF) SELECT id FROM paragraphs WHERE chapter_id = 1 ORDER BY idx;" against a table carrying a unique index on (chapter_id, idx) → "Index Scan using paragraphs_chapter_idx on paragraphs" / "Index Cond: (chapter_id = 1)" and no Sort node; the same query before the index existed → "Sort" over a disabled "Seq Scan"]`.
+index. What AC4 is checked against is the catalogue, never a query plan.** A unique btree index over
+`(chapter_id, idx)` refuses the second paragraph at a taken position *and* is the object that orders
+the paragraphs of a chapter: its key columns, in that order, are the whole of the schema property
+AC4 asks for.
+
+**A plan assertion was considered for the "served" half and is deliberately rejected**, because it
+asserts a property of the planner's statistics rather than of the schema. Measured against the schema
+this design writes, with the index under its own name and a fixture of the size a trial creates,
+disabling sequential scans is not enough: the planner chooses a bitmap path and sorts afterwards, so
+a "no sort step" assertion would be **red from the first run**
+`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres against the schema § The shape this design chooses fixes, a book with one chapter and three paragraphs freshly inserted and no ANALYZE, "SET enable_seqscan = off; EXPLAIN (COSTS OFF) SELECT id FROM paragraphs WHERE chapter_id = 1 ORDER BY idx;" → "Sort" / "Sort Key: idx" / "Bitmap Heap Scan on paragraphs" / "Bitmap Index Scan on paragraphs_chapter_id_idx_uniq"]`.
+The ordered plan appears only once the table has been analysed, or once bitmap paths are disabled
+too — both of them knobs about the *planner*, not about this migration
+`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · the same session and query with "SET enable_bitmapscan = off" → "Index Scan using paragraphs_chapter_id_idx_uniq on paragraphs" / "Index Cond: (chapter_id = 1)" and no Sort node; and again after "ANALYZE paragraphs" with bitmap paths re-enabled → the same sortless Index Scan]`.
+A test that has to analyse a table and pin two planner switches before it can read its verdict is a
+test about Postgres's cost model, and it would go red on a version that costs those paths
+differently while this schema is untouched. So **AC4 rests on the catalogue assertion alone** — the
+access method and the ordered key-column list — which is also what catches the failure the plan
+assertion was there for: an index over the same columns in the other order is a different key list
+and fails.
+
 One object, named once, is preferred to a constraint plus a second index; the corpus's § Индексы
 names this lookup as an index, which is the form chosen. The index names are fixed in § *The shape
 this design chooses* because they are persisted identifiers: renaming one later is a migration.
 
-**D6 — `translations_paragraph_id_idx` is created although the primary key's own index already serves
-that lookup, and the redundancy is recorded rather than removed.** Measured, the primary key over
-`(paragraph_id, cache_key, context_version)` serves both a lookup by paragraph alone and AC3's
-lookup by paragraph and cache key with no context version named
-`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6) · psql -U postgres, "SET enable_seqscan = off; EXPLAIN (COSTS OFF) …" → "Bitmap Index Scan on translations_pkey / Index Cond: (paragraph_id = 1)" for the paragraph-only lookup, and "Index Only Scan using translations_pkey … Index Cond: ((paragraph_id = 1) AND (cache_key = '\x01'::bytea))" for the cache pre-check]`.
-The corpus names the separate index and so does the task, and `docs/` is decisions — so it is
-created. It is not pure duplication either: it is the narrow index, without the key's `bytea` column,
-which is the one a cache pre-check scans most often. This paragraph exists so that a later reader
-meets the fact and the reason together instead of re-opening it.
+**D6 — `translations_paragraph_id_idx` is created because the corpus and the task both name it, and
+the primary key's own index would have served the lookup too.** Measured on a schema carrying no
+separate index, the key over `(paragraph_id, cache_key, context_version)` serves both a lookup by
+paragraph alone and AC3's lookup by paragraph and cache key with no context version named
+`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6) · psql -U postgres, "SET enable_seqscan = off; EXPLAIN (COSTS OFF) …" over a translations table whose only index was its primary key → "Bitmap Index Scan on translations_pkey / Index Cond: (paragraph_id = 1)" for the paragraph-only lookup, and "Index Only Scan using translations_pkey … Index Cond: ((paragraph_id = 1) AND (cache_key = '\x01'::bytea))" for the cache pre-check]`.
+`docs/` is decisions, so the index is created rather than argued away.
+
+**Which of the two the planner then picks is a statistics question and no part of this decision** —
+it is recorded here only so that nobody reads the paragraph above as a claim that the separate index
+is dead weight, and nobody writes a test that pins a choice which moves with the table's statistics:
+measured on the full schema with both indexes present, the cache pre-check took the key's index
+before the table was analysed and the separate index, with a filter, after
+`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres against the schema § The shape this design chooses fixes, with translations_paragraph_id_idx present and enable_seqscan off, "EXPLAIN (COSTS OFF) SELECT 1 FROM translations WHERE paragraph_id = 1 AND cache_key = '\x0a'::bytea LIMIT 1;" → "Index Only Scan using translations_pkey" before ANALYZE and "Index Scan using translations_paragraph_id_idx … Filter: (cache_key = '\x0a'::bytea)" after "ANALYZE translations"]`.
+This paragraph exists so that a later reader meets the fact and the reason together instead of
+re-opening it.
 
 **D7 — `vector(1024)` is a persisted schema dimension, not a tuning value, and the type enforces it
 by itself.** The tuning-value rule sends a batch size, a top-`k` or a temperature to configuration;
@@ -258,11 +301,29 @@ copied. This is the only change this task makes to an existing test file besides
 trials, and it starts no new crate: KD-20 puts that threshold at a second *crate* needing the
 harness, which is not this.
 
-**D10 — AC1 is checked by a catalogue golden, and the fields it covers are named.** The comparison
-reads, for every table in the public schema, the tuple (table name, column name, the catalogue's own
-formatted type, whether the column is required, the column's default expression), and holds the whole
-sorted set against a table written in the test — both directions, so a missing column and an
-unexpected extra column each fail. The formatted type is read with the catalogue's type formatter
+**D10 — AC1 is checked by a catalogue golden; the fields it covers are named, and so is the domain it
+runs over.** The comparison reads, for every table of the public schema **except the migrator's own
+bookkeeping table**, the tuple (table name, column name, the catalogue's own formatted type, whether
+the column is required, the column's default expression), and holds the whole sorted set against a
+table written in the test — both directions, so a missing column and an unexpected extra column each
+fail, and so does an unexpected extra *table*.
+
+**Why the domain is the schema less one named table, rather than the tables the expected set names.**
+A migrated database carries `_sqlx_migrations` in that same public schema — the migrator creates it
+unqualified, under a name that is the library's documented default — and this crate takes that
+default, which the existing trials prove by reading the table with no schema qualifier at all
+`[measured 31bc466:crates/core/tests/database.rs:136,256 · grep -n '_sqlx_migrations' crates/core/tests/database.rs → ':136: sqlx::query_scalar("SELECT version FROM _sqlx_migrations ORDER BY version")' and the same statement at ':256:']`
+`[measured sqlx-postgres@0.9.0 · awk 'NR>=130 && NR<=137 {print NR": "$0}' src/migrate.rs → ':130: CREATE TABLE IF NOT EXISTS {table_name} (' over the columns version, description, installed_on TIMESTAMPTZ NOT NULL DEFAULT now(), success, checksum and execution_time]`
+`[measured sqlx-core@0.9.0 · grep -rn '_sqlx_migrations' src/migrate/migrator.rs src/config/migrate.rs → 'src/migrate/migrator.rs:40: table_name: Cow::Borrowed("_sqlx_migrations"),' and 'src/config/migrate.rs:204: self.table_name.as_deref().unwrap_or("_sqlx_migrations")', beside doc lines stating the name may be overridden and schema-qualified]`.
+Comparing over the bare public schema would therefore fail on a table this migration never wrote;
+pinning that table's shape in the expected set would make an sqlx upgrade break a test about *this*
+schema. Excluding it by name keeps both directions of the comparison — an extra table this migration
+creates still fails — while coupling to nothing but a name the suite already depends on. Measured on
+the schema this design writes, with a bookkeeping table of exactly the shape above created beside it,
+that table is the only occupant of the public schema this migration does not own
+`[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres, a grouped count over pg_class ⋈ pg_attribute for relkind 'r' in schema public → rows for _sqlx_migrations, books, chapters, context_snapshots, paragraph_annotations, paragraph_embeddings, paragraphs, positions, settings and translations, and nothing else]`.
+
+The formatted type is read with the catalogue's type formatter
 rather than from `information_schema`, because the latter reports a vector column as a user-defined
 type and loses the dimension entirely
 `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6, vector 0.8.6) · psql -U postgres over a table with an embedding column → information_schema.columns gave "embedding | USER-DEFINED | vector", while "SELECT format_type(a.atttypid, a.atttypmod) FROM pg_attribute a …" gave "embedding | vector(1024)"]`.
@@ -399,6 +460,14 @@ inside the `1..=10` range.
   keys" reports rows on a schema with no check constraint at all
   `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6) · psql -U postgres over pg_constraint → rows with contype 'n' named books_title_not_null and chapters_idx_not_null beside the 'p' and 'f' rows, while the same query filtered to contype = 'c' returned no row]`.
   Mitigation: § Test Design pins the check-constraint query to the check contype and says why.
+- **The migrated database is not only this migration's**: the migrator keeps its bookkeeping table in
+  the same public schema, with a `now()` default of its own, so any assertion phrased "over the public
+  schema" is answering about two authors at once — which would have made the AC1 golden red on a table
+  this migration never wrote — `[measured sqlx-postgres@0.9.0 · the DDL read cited in D10 → the bookkeeping table is created unqualified with installed_on TIMESTAMPTZ NOT NULL DEFAULT now()]`.
+  Mitigation: **D10** names the golden's domain as the public schema less that one table, excluded by
+  name and never by pattern; **D2** scopes the no-default rule to this migration's own tables; and
+  § Test Design records, with the measurement, which two trials legitimately keep the bare schema as
+  their domain.
 - **From this task on, every commit of the code group needs a reachable container socket**, because
   the ratchet refuses a commit whose suite is not green and the suite provisions a database —
   `[measured 183da0c:.githooks/coverage-ratchet.sh:96-97 · the staged-set read cited in § What the gates will read afterwards → the filter names '*.rs' and '*.sql']`.
@@ -432,22 +501,25 @@ existing harness, so no trial cleans anything and no trial sees another's rows.
 
 - **Location:** an integration target's module, because the subject is a real server's catalogue
   (`ai-docs/rust-test-conventions.md` § *Where a test lives*, INV-15).
+- **Entry point:** the migrated database the harness hands the trial — every assertion in this file
+  is a query against that database's catalogue, and nothing here calls a function of the crate.
 - **Fixtures:** none recorded on disk; the expected sets are case tables written in the test.
 
 - **`schema_matches_the_recorded_shape`** — the golden **D10** specifies: for every table of the
-  public schema, the tuple (table, column, formatted type, required, default expression), compared as
-  a sorted set against the expected table in both directions. This is the trial that carries AC1's
-  "the columns and types the storage document lists", and it is the only one that would notice a
-  table created with a right-looking name and a wrong column `[derived → AC1]`.
+  public schema **except the migrator's bookkeeping table, excluded by name**, the tuple (table,
+  column, formatted type, required, default expression), compared as a sorted set against the
+  expected table in both directions. This is the trial that carries AC1's "the columns and types the
+  storage document lists", and it is the only one that would notice a table created with a
+  right-looking name and a wrong column. The exclusion is a single named table and never a prefix or
+  a pattern: a pattern would also swallow a table this migration wrongly created under a similar
+  name, which is the direction the golden exists to catch `[derived → AC1]`.
 - **`the_named_lookups_have_an_index_of_their_own`** — for each lookup AC4 names,
   assert that an index exists whose access method is btree and whose **ordered** key-column list is
   the expected one; the order matters, because an index over the same columns in the other order
-  exists just as happily and serves neither the reading order nor the snapshot lookup. One
-  corroborating assertion is added for the reading-order lookup only, where ordering rather than
-  filtering is the claim: with sequential scans disabled in the session, the plan for the chapter's
-  paragraphs ordered by position names that index and carries no sort step. A failure of the
-  corroborating half means the planner's choice changed and is investigated as such; it never
-  licenses weakening the catalogue half `[derived → AC4]`.
+  exists just as happily and serves neither the reading order nor the snapshot lookup. **No plan
+  assertion accompanies this, by decision D5** — the plan a fixture of this size produces is a
+  statement about the planner's statistics, and asserting it would be red before any mutation
+  `[derived → AC4]`.
 - **`the_embedding_column_is_the_declared_dimension`** — the formatted type of the embedding column is
   the 1024-dimension vector type, read with the catalogue's type formatter, because
   `information_schema` cannot see the dimension (**D10**) `[derived → AC5]`.
@@ -464,9 +536,17 @@ existing harness, so no trial cleans anything and no trial sees another's rows.
 - **`the_schema_carries_no_check_constraint`** — the catalogue holds no constraint of the check kind,
   the query filtered to that contype for the reason § Risks gives. This is AC12's and AC10's
   structural half: nothing in the schema judges what a value contains `[derived → AC10 and AC12]`.
+- **These last two run over the bare public schema and need no exclusion**, unlike the golden: the
+  migrator's bookkeeping table declares no reference and no check constraint, so it contributes no row
+  to either query
+  `[measured pgvector/pgvector@pg18 (PostgreSQL 18.6) · psql -U postgres, "SELECT contype, count(*) FROM pg_constraint WHERE conrelid = '_sqlx_migrations'::regclass GROUP BY contype" against a table created from the DDL cited in D10 → "n | 6" and "p | 1", and no row of either the 'f' or the 'c' kind]`.
+  Stating it here is what keeps a later reader from "fixing" these two trials by copying the golden's
+  exclusion into them, which would blind them to exactly the migration they are watching.
 
 ### The behaviour trials — `crates/core/tests/schema/behaviour.rs`
 
+- **Entry point:** the migrated database the harness hands the trial — every assertion here is an
+  insert or a delete against it, and the verdict is the server's answer to that statement.
 - **Fixtures:** helpers in `crates/core/tests/schema/mod.rs` that insert a book, a chapter and a
   paragraph and hand back their identifiers, one that builds a whole book with a row in every
   referencing table, and one that runs a statement expected to fail and returns the server's SQLSTATE
@@ -531,7 +611,9 @@ recorded one `[derived → the per-trial database the harness creates]`.
   shape trial fails naming it; then remove a column and confirm it fails again. A set comparison
   written in one direction only is the shape this rules out `[derived → AC1]`.
 - **The index assertion sees a wrong column order.** Reverse the key columns of the reading-order
-  index and confirm the trial fails, on the catalogue half as well as the planner half `[derived → AC4]`.
+  index and confirm the trial fails naming the key list it found. There is no second half to this
+  observation any more: D5 leaves AC4 on the catalogue assertion alone, precisely so that the red
+  seen here describes the schema rather than the planner `[derived → AC4]`.
 - **The dimension assertion sees another dimension.** Declare the embedding column at a different
   dimension and confirm both the shape trial and the refusal trial fail `[derived → AC5]`.
 - **The absent-index assertion can see an index.** Create an index over the embedding column with the
