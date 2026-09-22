@@ -5,14 +5,18 @@
 //! [`Harness::create_database`], and removes the container through
 //! [`Harness::shutdown`] after the trial runner returns.
 
+use std::future::Future;
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
+use libtest_mimic::{Failed, Trial};
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
 use testcontainers::runners::AsyncRunner;
 use testcontainers::{ContainerAsync, ImageExt};
 use testcontainers_modules::postgres::Postgres;
+use tokio::runtime::Handle;
 
 /// A harness operation's error: test code, so a boxed trait object stands in
 /// for a typed error per operation.
@@ -154,4 +158,23 @@ fn connect_options(host: &str, port: u16, database: &str) -> PgConnectOptions {
         .username("postgres")
         .database(database)
         .ssl_mode(PgSslMode::Disable)
+}
+
+/// Wraps a trial body — an async function taking the shared harness — into a
+/// [`Trial`] that runs it on the caller's runtime through a cloned [`Handle`].
+/// The closure owns an `Arc` clone rather than a borrow, because
+/// `Trial::test` requires its runner to be `'static`.
+pub fn make_trial<F, Fut>(
+    name: &'static str,
+    harness: &Arc<Harness>,
+    handle: &Handle,
+    body: F,
+) -> Trial
+where
+    F: FnOnce(Arc<Harness>) -> Fut + Send + 'static,
+    Fut: Future<Output = std::result::Result<(), Failed>>,
+{
+    let harness = Arc::clone(harness);
+    let handle = handle.clone();
+    Trial::test(name, move || handle.block_on(body(harness)))
 }
