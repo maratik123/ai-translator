@@ -99,7 +99,7 @@ What a later reader needs that the diff does not show:
   Amending it was outside the single corpus amendment the owner authorised, so it is recorded here and
   belongs to its own task.
 
-## Storage schema: the second migration — the database now refuses what the owner said it must (#TBD-at-Step-12, 2026-09-22)
+## Storage schema: the second migration — the database now refuses what the owner said it must (#77, 2026-09-22)
 
 - **The owner settled four questions the corpus leaves open, and each is a data contract from the day it
   lands.** The schema enforces structure and judges no content: a position is taken once within its
