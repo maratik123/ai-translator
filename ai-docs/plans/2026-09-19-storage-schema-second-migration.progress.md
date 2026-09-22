@@ -8,8 +8,8 @@ _Updated: 2026-09-22 08:41_
 **Last build:** PASS
 **Issue:** #11
 **Spec:** ai-docs/plans/2026-09-19-storage-schema-second-migration.spec.md
-**current_step:** Step 8 — Implementation start
-**last_passed_gate:** cargo build --workspace --all-targets | 2026-09-22T08:41:38Z | 1492d7b
+**current_step:** Step 8 — subtask 1 of 3 complete
+**last_passed_gate:** cargo test --workspace | 2026-09-22 | 1492d7b
 **entry_args:** 11
 
 ## Next action
@@ -18,14 +18,15 @@ _Updated: 2026-09-22 08:41_
 
 ## Subtasks
 
-- [ ] 1. The migration `crates/core/migrations/0002_storage_schema.sql`, and the embedded-set assertion that proves the build saw it  ← CURRENT
-- [ ] 2. The schema trials under `crates/core/tests/schema/`, with the red observations before the group's last commit
+- [x] 1. The migration `crates/core/migrations/0002_storage_schema.sql`, and the embedded-set assertion that proves the build saw it
+- [ ] 2. The schema trials under `crates/core/tests/schema/`, with the red observations before the group's last commit  ← CURRENT
 - [ ] 3. The key-decision row recording the schema's integrity posture
 
 ## Decisions log
 
 - **Step 7**: design-review reached GO on round 3; rounds 1 and 2 returned ITERATE, and the cap of 3 was not raised.
 - **Step 8**: Group A routes to `code-writer` (frontmatter-pinned sonnet/medium, no inline override) and Group B to `general-purpose` (inherit), as the design's `## Handoff plan` marks them.
+- **Step 8, subtask 1**: wrote `crates/core/migrations/0002_storage_schema.sql` per design § *The shape this design chooses* — all nine tables in dependency order, the four named indexes, no `CHECK`, no `DEFAULT` beyond the `bigserial` sequences, no transaction opt-out, no comment. Added `embedded_set_carries_the_storage_schema_migration` beside the existing `#[cfg(test)]` case in `crates/core/src/lib.rs`, asserting the highest-versioned migration is version 2 described `storage schema` (D11); the existing lowest-version case is untouched. `cargo build --workspace --all-targets`, `cargo test --workspace --lib -p reader-core`, `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and the whole-workspace `cargo test --workspace` (database-backed, container socket reachable) all ran green before this commit.
 
 ## GO notes
 
@@ -70,4 +71,7 @@ _Updated: 2026-09-22 08:41_
 |----|--------|----------|--------|-------------------|
 
 ## Files touched
+
+- `crates/core/migrations/0002_storage_schema.sql` (new, subtask 1)
+- `crates/core/src/lib.rs` (subtask 1)
 
