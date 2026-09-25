@@ -34,4 +34,23 @@ mod tests {
             "the lowest-versioned migration's statement is exactly the vector-extension statement"
         );
     }
+
+    #[test]
+    fn embedded_set_carries_the_storage_schema_migration() {
+        let highest = MIGRATOR
+            .migrations
+            .iter()
+            .max_by_key(|migration| migration.version)
+            .expect("the embedded set carries at least one migration");
+
+        assert_eq!(
+            highest.version, 2,
+            "the highest-versioned migration is version 2"
+        );
+        assert_eq!(
+            highest.description, "storage schema",
+            "the highest-versioned migration is described storage schema \
+             (sqlx replaces the file name's underscores with spaces)"
+        );
+    }
 }

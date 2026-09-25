@@ -98,3 +98,52 @@ What a later reader needs that the diff does not show:
   still describes a runner exporting the container socket variable, a mechanism this harness declines.
   Amending it was outside the single corpus amendment the owner authorised, so it is recorded here and
   belongs to its own task.
+
+## Storage schema: the second migration — the database now refuses what the owner said it must (#77, 2026-09-22)
+
+- **The owner settled four questions the corpus leaves open, and each is a data contract from the day it
+  lands.** The schema enforces structure and judges no content: a position is taken once within its
+  parent and a row lacking a value it would be meaningless without is refused, while an empty paragraph
+  text is stored as given. Deleting a book is refused while anything still references it — nothing
+  cascades anywhere in the schema. The categorical columns hold free text, with the supported set in the
+  code. A work with no divisions of its own is stored as one untitled chapter, so a paragraph never
+  belongs to a book directly and the reading path stays single.
+- **A delete refused by a restrict rule raises SQLSTATE `23001`, not `23503`.** A trial written against
+  the foreign-key code would be green for a schema with the wrong rule — the discriminator is the whole
+  reason the references spell the rule explicitly rather than relying on the default.
+- **`information_schema` loses a vector column's dimension**, reporting the type as user-defined;
+  `format_type` over the catalogue is what reports it in full. The golden that pins the schema's shape
+  reads the catalogue for that reason, and its type strings are the formatter's own spellings rather
+  than the ones the migration file writes.
+- **The golden's domain excludes the migrator's own bookkeeping table by name, never by a pattern.** A
+  pattern would also swallow a wrongly-created table of a similar name, which is the failure the golden
+  exists to catch; pinning that table's shape would couple the trial to the migration library's version.
+- **PostgreSQL 18 records `NOT NULL` as constraint rows of the `n` kind**, so the assertion that the
+  schema carries no check constraint answers clean for every possible schema if it is scoped to the
+  wrong kind or the wrong namespace. It is scoped twice, and the mutation that proves it is paired with
+  the unmutated schema's green beside it.
+- **Postgres forces `NOT NULL` on every primary-key column regardless of the column's own
+  declaration.** A red observation that drops the marker from a key column therefore mutates nothing and
+  stays green; the observation has to pick a column outside every key.
+- **Dropping a table's primary key removes that table from the key query's answer rather than leaving an
+  empty key list**, so the assertion that every table carries the key the corpus fixes compares as a set
+  in both directions. Written the easy way — every row that came back matches — it is green on precisely
+  the schema it exists to catch.
+- **No assertion is made about the query plan, deliberately.** The reading-order plan carries a sort over
+  a bitmap scan until the table has been analysed, so an assertion about it would be red from the first
+  run and repairable only by analysing a table and pinning cost-model switches — which would make it a
+  test about the planner's cost model. The ordered key-column list in the catalogue already catches the
+  wrong-column-order failure the plan assertion was there for.
+- **The two reference-shaped columns the corpus leaves unmarked stay unmarked**, and the consequence is
+  live rather than urgent: a paragraph may be deleted while a context snapshot or a reading position
+  still points at it. Nothing in this milestone deletes a paragraph. Making them references later is a
+  forward migration in the direction that stays open.
+- **No corpus row is ticked by this work.** The storage page's task list is about the sqlx setup, the
+  migrate binary, the schema check an engine performs when it opens a database, the repositories, and
+  the role and database on the local Postgres — none of which this task delivers. The schema now exists
+  in the repository and in every test database, and nothing shipped applies it anywhere else.
+- **The coverage ratchet blocked this branch on a value it had written itself.** It compares the
+  measurement at full precision and records it rounded half-up, so the recorded mark sat strictly above
+  the measurement that produced it. The recorded value was lowered to the round-down in its own
+  document-only commit, which keeps the hook's raise branch skipped; the script is untouched and its
+  diagnosis remains an open harness-gaps entry.

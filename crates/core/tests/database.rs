@@ -4,15 +4,15 @@
 //! connection source the standard test attribute offers is an environment
 //! variable this suite may not read.
 
+mod schema;
 mod support;
 
-use std::future::Future;
 use std::sync::Arc;
 
-use libtest_mimic::{Arguments, Failed, Trial};
-use tokio::runtime::{Builder, Handle};
+use libtest_mimic::{Arguments, Failed};
+use tokio::runtime::Builder;
 
-use support::Harness;
+use support::{Harness, make_trial};
 
 fn main() -> std::process::ExitCode {
     let args = Arguments::from_args();
@@ -28,7 +28,7 @@ fn main() -> std::process::ExitCode {
         .expect("failed to start the shared Postgres container");
     let harness = Arc::new(harness);
 
-    let trials = vec![
+    let mut trials = vec![
         make_trial(
             "vector_type_is_usable",
             &harness,
@@ -60,6 +60,7 @@ fn main() -> std::process::ExitCode {
             concurrent_requests_get_distinct_databases,
         ),
     ];
+    trials.extend(schema::trials(&harness, &handle));
 
     let conclusion = libtest_mimic::run(&args, trials);
     let run_exit_code = conclusion.exit_code();
@@ -81,20 +82,6 @@ fn main() -> std::process::ExitCode {
             }
         }
     }
-}
-
-/// Wraps a trial body — an async function taking the shared harness — into a
-/// [`Trial`] that runs it on `main`'s own runtime through a cloned [`Handle`].
-/// The closure owns an `Arc` clone rather than a borrow, because
-/// `Trial::test` requires its runner to be `'static`.
-fn make_trial<F, Fut>(name: &'static str, harness: &Arc<Harness>, handle: &Handle, body: F) -> Trial
-where
-    F: FnOnce(Arc<Harness>) -> Fut + Send + 'static,
-    Fut: Future<Output = Result<(), Failed>>,
-{
-    let harness = Arc::clone(harness);
-    let handle = handle.clone();
-    Trial::test(name, move || handle.block_on(body(harness)))
 }
 
 /// A freshly migrated database really carries a usable `vector` type: a
